@@ -1,0 +1,31 @@
+{
+  "id": "custom_ad_spend",
+  "name": "Custom Ad Spend",
+  "definition_short": "Manual or imported non-connector ad spend.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Source-reported/base metric for Custom Ad Spend.",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Custom Ad Spend",
+    "custom_ad_spend"
+  ],
+  "gotchas": [
+    "Optional metric that depends on workspace manual inputs.",
+    "Used to include spend not present in paid connector feeds."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 50
+}

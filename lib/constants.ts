@@ -1,0 +1,27 @@
+export const ROUTES = {
+  home: "/",
+  dashboard: "/dashboard",
+  paidMediaAll: "/dashboard/paid-media",
+  paidMediaMeta: "/dashboard/paid-media/meta",
+  paidMediaGoogle: "/dashboard/paid-media/google",
+  paidMediaTiktok: "/dashboard/paid-media/tiktok",
+  paidMediaCreative: "/dashboard/paid-media/creative",
+  shopifyRoot: "/dashboard/shopify",
+  shopifyProfit: "/dashboard/shopify/profit",
+  shopifyProducts: "/dashboard/shopify/products",
+  shopifyInventory: "/dashboard/shopify/inventory",
+  shopifyFunnel: "/dashboard/shopify/funnel",
+  email: "/dashboard/email",
+  settings: "/dashboard/settings",
+  settingsWorkspace: "/dashboard/settings/workspace",
+  settingsDashboard: "/dashboard/settings/dashboard",
+  settingsInputs: "/dashboard/settings/inputs",
+  settingsInputsCosts: "/dashboard/settings/inputs/costs",
+  settingsInputsBudgets: "/dashboard/settings/inputs/budgets",
+  settingsInputsTargets: "/dashboard/settings/inputs/targets",
+  settingsMetrics: "/dashboard/settings/metrics",
+  settingsSyncs: "/dashboard/settings/syncs",
+  previewComponents: "/preview/components",
+} as const
+
+export const DASHBOARD_READ_CACHE_TTL_MS = 15_000

@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_thumbstop_ratio_video_ads_only",
+  "name": "Meta Ads Thumbstop ratio (video ads only)",
+  "definition_short": "This metric shows how well your video creative captures attention in the crucial first seconds. It measures the percentage of viewers who watch at least three seconds after your video appears in their feed. Put simply, the thumbstop ratio tells you if your video opens strong enough to quickly earn viewers’ attention.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Thumbstop ratio = (3-second video views / impressions) * 100",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads Thumbstop ratio (video ads only)",
+    "Meta Ads Thumbstop ratio (video ads only)",
+    "meta_ads_thumbstop_ratio_video_ads_only"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 370
+}

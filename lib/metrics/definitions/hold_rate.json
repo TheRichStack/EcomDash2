@@ -1,0 +1,26 @@
+{
+  "id": "hold_rate",
+  "name": "Hold Rate",
+  "definition_short": "Of viewers who watched 3 seconds, the percentage who continued watching for 15 seconds — measures creative body quality after the initial hook.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": ["meta", "tiktok"],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Hold Rate = (15-Second Video Views / 3-Second Video Views) × 100",
+  "formula_kind": "reference",
+  "provenance": "derived_internal",
+  "is_base": false,
+  "used_in_dashboard": true,
+  "aliases": ["hold rate", "15s rate", "retention rate", "body rate"],
+  "gotchas": [
+    "40–50% is average; above 60% is strong; below 30% suggests hook premise doesn't match message",
+    "TikTok approximation uses 6s/2s views — slightly different threshold to Meta's ThruPlay/3s"
+  ],
+  "notes": "Low hold rate with high thumbstop = good hook, weak body. Computed in the data layer from stored video_15s_views and video_3s_views columns. Displayed as a percentage.",
+  "implementation_status": "implemented",
+  "display_order": 203
+}

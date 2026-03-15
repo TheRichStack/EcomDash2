@@ -1,0 +1,67 @@
+{
+  "id": "poas",
+  "name": "POAS",
+  "definition_short": "Profit on Ad Spend (POAS) measures the profitability generated per dollar spent on advertising.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "total_sales",
+    "total_costs_input",
+    "blended_ad_spend"
+  ],
+  "formula_tokens": [
+    {
+      "type": "operator",
+      "value": "("
+    },
+    {
+      "type": "metric",
+      "metric_id": "total_sales"
+    },
+    {
+      "type": "operator",
+      "value": "-"
+    },
+    {
+      "type": "metric",
+      "metric_id": "total_costs_input"
+    },
+    {
+      "type": "operator",
+      "value": ")"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    }
+  ],
+  "formula_signature": "(total_sales-total_costs_input)/blended_ad_spend",
+  "formula_readable": "POAS = (Total Sales - Total Costs) / Blended Ad Spend",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "POAS"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 710
+}

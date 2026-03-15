@@ -1,0 +1,26 @@
+{
+  "id": "thumbstop_rate",
+  "name": "Thumbstop Rate",
+  "definition_short": "Percentage of impressions that became a 3-second video view — measures how effectively an ad stops the scroll in the first moment.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": ["meta", "tiktok"],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Thumbstop Rate = (3-Second Video Views / Impressions) × 100",
+  "formula_kind": "reference",
+  "provenance": "derived_internal",
+  "is_base": false,
+  "used_in_dashboard": true,
+  "aliases": ["hook rate", "thumbstop", "3s view rate", "video hook rate"],
+  "gotchas": [
+    "Above 40% is excellent; 30–40% very good; 20–30% average; below 20% needs creative rework",
+    "Only meaningful for video ad formats — will always show 0% for image ads"
+  ],
+  "notes": "Also called hook rate. Computed in the data layer from stored video_3s_views and impressions columns. Displayed as a percentage (already multiplied by 100).",
+  "implementation_status": "implemented",
+  "display_order": 202
+}

@@ -1,0 +1,68 @@
+{
+  "id": "blended_ad_spend",
+  "name": "Blended Ad Spend",
+  "definition_short": "Total ad spend across paid channels, including optional custom spend.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "meta_ad_spend",
+    "google_ad_spend",
+    "tiktok_ad_spend",
+    "custom_ad_spend"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "meta_ad_spend"
+    },
+    {
+      "type": "operator",
+      "value": "+"
+    },
+    {
+      "type": "metric",
+      "metric_id": "google_ad_spend"
+    },
+    {
+      "type": "operator",
+      "value": "+"
+    },
+    {
+      "type": "metric",
+      "metric_id": "tiktok_ad_spend"
+    },
+    {
+      "type": "operator",
+      "value": "+"
+    },
+    {
+      "type": "metric",
+      "metric_id": "custom_ad_spend"
+    }
+  ],
+  "formula_signature": "meta_ad_spend+google_ad_spend+tiktok_ad_spend+custom_ad_spend",
+  "formula_readable": "Blended Ad Spend = meta_ad_spend+google_ad_spend+tiktok_ad_spend+custom_ad_spend",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Blended Ad Spend",
+    "blended_ad_spend"
+  ],
+  "gotchas": [
+    "Custom spend can be optional by workspace configuration.",
+    "Channel enablement directly affects this metric."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 20
+}

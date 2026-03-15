@@ -1,0 +1,31 @@
+{
+  "id": "tiktok_ad_spend",
+  "name": "TikTok Ad Spend",
+  "definition_short": "Ad spend from TikTok channels.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "tiktok"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Source-reported/base metric for TikTok Ad Spend.",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "TikTok Ad Spend",
+    "tiktok_ad_spend"
+  ],
+  "gotchas": [
+    "Includes spend synced from TikTok Ads.",
+    "Depends on connector freshness and account scope."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 200
+}

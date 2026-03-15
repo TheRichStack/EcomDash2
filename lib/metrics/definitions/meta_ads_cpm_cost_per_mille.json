@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_cpm_cost_per_mille",
+  "name": "Meta Ads CPM (cost-per-mille)",
+  "definition_short": "This performance metric shows how much you pay to show your ad 1,000 times. It’s a foundational Meta ad metric that tells you how competitive your ad is in the auction and how much it costs to reach your audience.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "CPM = (total spend / impressions) * 1,000",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads CPM (cost-per-mille)",
+    "Meta Ads CPM (cost-per-mille)",
+    "meta_ads_cpm_cost_per_mille"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 310
+}

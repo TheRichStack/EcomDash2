@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_cpc_cost_per_click",
+  "name": "Meta Ads CPC (cost-per-click)",
+  "definition_short": "This metric shows how much you pay on average every time someone clicks on your ad. It’s one of the most straightforward Meta ad metrics and essentially measures how much you pay for viewer attention. A high CPC means higher costs, so keep a close eye on this number. A high CTR with a high CPC is an indication of effective but expensive Meta ads, while a low CPC with no conversions may appear good but ultimately doesn’t achieve business growth.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "CPC = total spend / link clicks",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads CPC (cost-per-click)",
+    "Meta Ads CPC (cost-per-click)",
+    "meta_ads_cpc_cost_per_click"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 300
+}

@@ -1,0 +1,35 @@
+{
+  "id": "is_new_customer",
+  "name": "Is New Customer",
+  "definition_short": "Is New Customer indicates whether an order is the customer’s first order for the shop.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Is New Customer = 'true' if no earlier order exists for the same customer",
+  "formula_kind": "reference",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Is New Customer",
+    "is_new_customer"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 580
+}

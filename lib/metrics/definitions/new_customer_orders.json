@@ -1,0 +1,35 @@
+{
+  "id": "new_customer_orders",
+  "name": "New Customer Orders",
+  "definition_short": "New Customer Orders represents the total number of orders placed by new customers.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "New Customer Orders = Total count of orders by new customers",
+  "formula_kind": "reference",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "New Customer Orders",
+    "new_customer_orders"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 660
+}

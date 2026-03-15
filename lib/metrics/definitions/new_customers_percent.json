@@ -1,0 +1,59 @@
+{
+  "id": "new_customers_percent",
+  "name": "New Customers Percent",
+  "definition_short": "New Customers Percent represents the percentage of orders placed by new customers within a specific period relative to the total number of orders.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "new_customer_orders",
+    "orders_count"
+  ],
+  "formula_tokens": [
+    {
+      "type": "operator",
+      "value": "("
+    },
+    {
+      "type": "metric",
+      "metric_id": "new_customer_orders"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "orders_count"
+    },
+    {
+      "type": "operator",
+      "value": ")"
+    }
+  ],
+  "formula_signature": "(new_customer_orders/orders_count)",
+  "formula_readable": "New Customers Percent = (New Customer Orders / Total Orders)",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "New Customers Percent",
+    "new_customers_percent"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 680
+}

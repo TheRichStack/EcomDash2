@@ -1,0 +1,51 @@
+{
+  "id": "mer_spend_over_revenue",
+  "name": "MER",
+  "definition_short": "Marketing Efficiency Ratio (MER) evaluates the total advertising spend as a proportion of the revenue generated from all orders.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "blended_ad_spend",
+    "order_revenue_sheet"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "order_revenue_sheet"
+    }
+  ],
+  "formula_signature": "blended_ad_spend/order_revenue_sheet",
+  "formula_readable": "MER = Blended Ad Spend / Order Revenue",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "MER",
+    "mer_spend_over_revenue"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 600
+}

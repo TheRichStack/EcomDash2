@@ -1,0 +1,51 @@
+{
+  "id": "net_margin",
+  "name": "Net Margin",
+  "definition_short": "Net profit after ads divided by Shopify net revenue.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "net_profit_after_ads",
+    "shopify_net_revenue"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "net_profit_after_ads"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "shopify_net_revenue"
+    }
+  ],
+  "formula_signature": "net_profit_after_ads/shopify_net_revenue",
+  "formula_readable": "Net Margin = net_profit_after_ads/shopify_net_revenue",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Net Margin",
+    "net_margin"
+  ],
+  "gotchas": [
+    "Net margin is sensitive to small revenue denominators.",
+    "Interpret alongside absolute profit for context."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 130
+}

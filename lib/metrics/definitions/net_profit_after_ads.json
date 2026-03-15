@@ -1,0 +1,50 @@
+{
+  "id": "net_profit_after_ads",
+  "name": "Net Profit After Ads",
+  "definition_short": "Net profit after ad spend and core cost deductions.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "adjustment",
+  "color_token": "adjustment",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok"
+  ],
+  "dependencies": [
+    "gross_profit",
+    "blended_ad_spend"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "gross_profit"
+    },
+    {
+      "type": "operator",
+      "value": "-"
+    },
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    }
+  ],
+  "formula_signature": "gross_profit-blended_ad_spend",
+  "formula_readable": "Net Profit After Ads = gross_profit-blended_ad_spend",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Net Profit After Ads",
+    "net_profit_after_ads"
+  ],
+  "gotchas": [
+    "Derived as gross profit minus blended ad spend.",
+    "Operating overhead is not included in this metric."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 140
+}

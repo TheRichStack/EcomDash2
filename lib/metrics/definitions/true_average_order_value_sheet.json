@@ -1,0 +1,73 @@
+{
+  "id": "true_average_order_value_sheet",
+  "name": "True Average Order Value",
+  "definition_short": "True Average Order Value (True AOV) is the average order value (minus shipping and taxes) for orders with a non-zero (positive) revenue.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "non_zero_order_revenue_input",
+    "shipping_input",
+    "taxes_input",
+    "orders_count"
+  ],
+  "formula_tokens": [
+    {
+      "type": "operator",
+      "value": "("
+    },
+    {
+      "type": "metric",
+      "metric_id": "non_zero_order_revenue_input"
+    },
+    {
+      "type": "operator",
+      "value": "-"
+    },
+    {
+      "type": "metric",
+      "metric_id": "shipping_input"
+    },
+    {
+      "type": "operator",
+      "value": "-"
+    },
+    {
+      "type": "metric",
+      "metric_id": "taxes_input"
+    },
+    {
+      "type": "operator",
+      "value": ")"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "orders_count"
+    }
+  ],
+  "formula_signature": "(non_zero_order_revenue_input-shipping_input-taxes_input)/orders_count",
+  "formula_readable": "True AOV = (Non-Zero Order Revenue - Shipping - Taxes) / Orders",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "True Average Order Value",
+    "true_average_order_value_sheet"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 780
+}

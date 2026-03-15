@@ -1,0 +1,31 @@
+{
+  "id": "meta_attributed_revenue",
+  "name": "Meta Attributed Revenue",
+  "definition_short": "Revenue attributed to Meta ads.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "revenue",
+  "color_token": "revenue",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Source-reported/base metric for Meta Attributed Revenue.",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Meta Attributed Revenue",
+    "meta_attributed_revenue"
+  ],
+  "gotchas": [
+    "Uses platform attribution from Meta.",
+    "Attribution windows can differ from Shopify revenue timing."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 110
+}

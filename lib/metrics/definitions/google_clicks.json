@@ -1,0 +1,31 @@
+{
+  "id": "google_clicks",
+  "name": "Google Clicks",
+  "definition_short": "Google Clicks refers to the number of clicks as reported by Google.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": [
+    "google"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Google Clicks = Total Google-Reported Clicks",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Google Clicks",
+    "google_clicks"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 490
+}

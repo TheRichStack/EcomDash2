@@ -1,0 +1,26 @@
+{
+  "id": "video_15s_views",
+  "name": "15-Second Video Views",
+  "definition_short": "Number of times a video ad was watched for at least 15 seconds (Meta ThruPlay) or 6 seconds (TikTok). Measures how many viewers stayed through the core message.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": ["meta", "tiktok"],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "15-Second Video Views = Meta ThruPlay count or TikTok 6-second view count",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "is_base": true,
+  "used_in_dashboard": false,
+  "aliases": ["thruplay", "15s views", "hold views"],
+  "gotchas": [
+    "TikTok uses 6-second views as the closest available threshold — not an exact match to Meta ThruPlay",
+    "Meta ThruPlay counts full plays for videos shorter than 15 seconds"
+  ],
+  "notes": "",
+  "implementation_status": "implemented",
+  "display_order": 201
+}

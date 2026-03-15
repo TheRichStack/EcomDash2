@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_engagement_rate",
+  "name": "Meta Ads Engagement rate",
+  "definition_short": "This metric tells you how well your content connects and resonates with your target audience. It measures the percentage of people who interacted with your post through reactions, comments, shares, link clicks, profile taps and more.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Engagement rate = (total engagements / total reach) * 100",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads Engagement rate",
+    "Meta Ads Engagement rate",
+    "meta_ads_engagement_rate"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 330
+}

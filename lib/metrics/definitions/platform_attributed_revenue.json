@@ -1,0 +1,58 @@
+{
+  "id": "platform_attributed_revenue",
+  "name": "Platform Attributed Revenue",
+  "definition_short": "Revenue attributed by ad platforms (Meta, Google, TikTok).",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "revenue",
+  "color_token": "revenue",
+  "sources": [
+    "meta",
+    "google",
+    "tiktok"
+  ],
+  "dependencies": [
+    "meta_attributed_revenue",
+    "google_attributed_revenue",
+    "tiktok_attributed_revenue"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "meta_attributed_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "+"
+    },
+    {
+      "type": "metric",
+      "metric_id": "google_attributed_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "+"
+    },
+    {
+      "type": "metric",
+      "metric_id": "tiktok_attributed_revenue"
+    }
+  ],
+  "formula_signature": "meta_attributed_revenue+google_attributed_revenue+tiktok_attributed_revenue",
+  "formula_readable": "Platform Attributed Revenue = meta_attributed_revenue+google_attributed_revenue+tiktok_attributed_revenue",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Platform Attributed Revenue",
+    "platform_attributed_revenue"
+  ],
+  "gotchas": [
+    "Platform attribution can differ from Shopify order revenue.",
+    "Includes only configured and synced ad platforms."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 180
+}

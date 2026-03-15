@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_frequency",
+  "name": "Meta Ads Frequency",
+  "definition_short": "This metric tracks the average number of times a person sees your ad. Example: 1,000 people who see your ad 2,000 times equals a frequency of 2.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Frequency = total impressions / unique reach",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads Frequency",
+    "Meta Ads Frequency",
+    "meta_ads_frequency"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 340
+}

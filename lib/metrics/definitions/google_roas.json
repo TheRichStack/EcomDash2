@@ -1,0 +1,31 @@
+{
+  "id": "google_roas",
+  "name": "Google ROAS",
+  "definition_short": "Google Return on Ad Spend (Google ROAS) refers to the Google-reported conversion value divided by the Google-reported ad spend.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "google"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Google ROAS = Google Ads Conversion Value / Google Ad Spend",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Google ROAS",
+    "google_roas"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 560
+}

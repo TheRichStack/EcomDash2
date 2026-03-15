@@ -1,0 +1,30 @@
+{
+  "id": "returning_customer_orders_input",
+  "name": "Returning Customer Orders (Placeholder Input)",
+  "definition_short": "Placeholder input for formula term: Returning Customer Orders.",
+  "unit_type": "percent",
+  "direction": "neutral",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Placeholder source/input term for \"Returning Customer Orders\".",
+  "formula_kind": "reference",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Returning Customer Orders"
+  ],
+  "gotchas": [
+    "Placeholder metric generated from formula term parsing.",
+    "Replace with concrete metric mapping when available."
+  ],
+  "notes": "Auto-generated during metrics import to preserve formula lineage display.",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "placeholder",
+  "display_order": 9000
+}

@@ -1,0 +1,31 @@
+{
+  "id": "shopify_net_revenue",
+  "name": "Shopify Net Revenue",
+  "definition_short": "Net revenue from Shopify orders after discounts and refunds.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "revenue",
+  "color_token": "revenue",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Source-reported/base metric for Shopify Net Revenue.",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Shopify Net Revenue",
+    "shopify_net_revenue"
+  ],
+  "gotchas": [
+    "Reflects Shopify net order revenue, not attributed ad revenue.",
+    "Depends on refund and order sync completeness."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 190
+}

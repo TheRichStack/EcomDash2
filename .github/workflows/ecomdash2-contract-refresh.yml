@@ -1,0 +1,44 @@
+name: EcomDash2 Contract Refresh
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      from:
+        description: 'Start date (YYYY-MM-DD)'
+        required: false
+      to:
+        description: 'End date (YYYY-MM-DD)'
+        required: false
+
+jobs:
+  contract-refresh:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run contract refresh
+        run: |
+          ARGS=""
+          if [ -n "${{ github.event.inputs.from }}" ]; then ARGS="$ARGS --from=${{ github.event.inputs.from }}"; fi
+          if [ -n "${{ github.event.inputs.to }}" ]; then ARGS="$ARGS --to=${{ github.event.inputs.to }}"; fi
+          npm run jobs:contracts:refresh -- $ARGS
+        env:
+          ECOMDASH2_BACKEND_SOURCE: turso
+          ECOMDASH2_TURSO_URL: ${{ secrets.ECOMDASH2_TURSO_URL }}
+          ECOMDASH2_TURSO_AUTH_TOKEN: ${{ secrets.ECOMDASH2_TURSO_AUTH_TOKEN }}
+          ECOMDASH2_DEFAULT_WORKSPACE_ID: ${{ secrets.ECOMDASH2_DEFAULT_WORKSPACE_ID }}
+          DATA_ENCRYPTION_KEY: ${{ secrets.DATA_ENCRYPTION_KEY }}

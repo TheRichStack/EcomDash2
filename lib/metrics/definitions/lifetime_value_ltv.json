@@ -1,0 +1,47 @@
+{
+  "id": "lifetime_value_ltv",
+  "name": "Lifetime Value (LTV)",
+  "definition_short": "Lifetime Value (LTV) represents the average order revenue per customer, for orders placed within the selected timeframe.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "order_revenue_sheet",
+    "unique_customers"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "order_revenue_sheet"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "unique_customers"
+    }
+  ],
+  "formula_signature": "order_revenue_sheet/unique_customers",
+  "formula_readable": "LTV = Order Revenue / Unique Customers",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Lifetime Value (LTV)",
+    "lifetime_value_ltv"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 590
+}

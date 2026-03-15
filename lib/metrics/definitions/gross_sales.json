@@ -1,0 +1,47 @@
+{
+  "id": "gross_sales",
+  "name": "Gross Sales",
+  "definition_short": "Gross Sales refers to the total revenue before adjustments such as discounts, shipping, fees, taxes, and refunds.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "sum_of_product_price_input",
+    "units_sold_for_each_unit_sold_input"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "sum_of_product_price_input"
+    },
+    {
+      "type": "operator",
+      "value": "*"
+    },
+    {
+      "type": "metric",
+      "metric_id": "units_sold_for_each_unit_sold_input"
+    }
+  ],
+  "formula_signature": "sum_of_product_price_input*units_sold_for_each_unit_sold_input",
+  "formula_readable": "Gross Sales = Sum of Product Price * Units Sold for Each Unit Sold",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Gross Sales",
+    "gross_sales"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 570
+}

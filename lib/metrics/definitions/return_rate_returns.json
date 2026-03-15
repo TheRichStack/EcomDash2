@@ -1,0 +1,47 @@
+{
+  "id": "return_rate_returns",
+  "name": "Return Rate (Returns %)",
+  "definition_short": "Return Rate (Returns %) refers to the total value of returns as a percentage of order revenue.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "total_return_value_input",
+    "order_revenue_sheet"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "total_return_value_input"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "order_revenue_sheet"
+    }
+  ],
+  "formula_signature": "total_return_value_input/order_revenue_sheet",
+  "formula_readable": "Returns % = Total Return Value / Order Revenue",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Return Rate (Returns %)",
+    "return_rate_returns"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 730
+}

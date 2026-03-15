@@ -1,0 +1,50 @@
+{
+  "id": "blended_roas",
+  "name": "Blended ROAS",
+  "definition_short": "Attributed revenue generated per unit of blended ad spend.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "platform_attributed_revenue",
+    "blended_ad_spend"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "platform_attributed_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    }
+  ],
+  "formula_signature": "platform_attributed_revenue/blended_ad_spend",
+  "formula_readable": "Blended ROAS = platform_attributed_revenue/blended_ad_spend",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Blended ROAS",
+    "blended_roas"
+  ],
+  "gotchas": [
+    "Uses attributed revenue, not Shopify net revenue.",
+    "Inverse ratio is not MER."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 30
+}

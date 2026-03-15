@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_conversions",
+  "name": "Meta Ads Conversions",
+  "definition_short": "This metric tells how well your ads drive real results. Not all conversions are equal, and a drop might indicate issues after the click rather than in the ad.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Conversions = valuable user actions defined by your campaign goals",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads Conversions",
+    "Meta Ads Conversions",
+    "meta_ads_conversions"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 280
+}

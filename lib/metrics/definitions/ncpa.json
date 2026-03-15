@@ -1,0 +1,50 @@
+{
+  "id": "ncpa",
+  "name": "NCPA",
+  "definition_short": "Blended ad spend per new customer acquired.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "blended_ad_spend",
+    "new_customers"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "new_customers"
+    }
+  ],
+  "formula_signature": "blended_ad_spend/new_customers",
+  "formula_readable": "NCPA = blended_ad_spend/new_customers",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "NCPA"
+  ],
+  "gotchas": [
+    "Depends on first-order/new-customer tagging quality.",
+    "Can spike when new customer volume is low."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 120
+}

@@ -1,0 +1,47 @@
+{
+  "id": "gross_profit",
+  "name": "Gross Profit",
+  "definition_short": "Shopify net revenue minus COGS.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "adjustment",
+  "color_token": "adjustment",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "shopify_net_revenue",
+    "cogs"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "shopify_net_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "-"
+    },
+    {
+      "type": "metric",
+      "metric_id": "cogs"
+    }
+  ],
+  "formula_signature": "shopify_net_revenue-cogs",
+  "formula_readable": "Gross Profit = shopify_net_revenue-cogs",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Gross Profit",
+    "gross_profit"
+  ],
+  "gotchas": [
+    "Only subtracts COGS in this definition.",
+    "Does not include ad spend or operating costs."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 80
+}

@@ -1,0 +1,31 @@
+{
+  "id": "refunded_sales_returns",
+  "name": "Refunded Sales (Returns)",
+  "definition_short": "Refunded Sales represents the total sales amount refunded during the selected time period, based on the refund date (not including refunded cost of goods, taxes, and shipping).",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Refunded Sales = The total amount from all refunded orders",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Refunded Sales (Returns)",
+    "refunded_sales_returns"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 720
+}

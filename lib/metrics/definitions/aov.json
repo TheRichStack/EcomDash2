@@ -1,0 +1,46 @@
+{
+  "id": "aov",
+  "name": "AOV",
+  "definition_short": "Average Shopify net revenue per order.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "shopify_net_revenue",
+    "orders_count"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "shopify_net_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "orders_count"
+    }
+  ],
+  "formula_signature": "shopify_net_revenue/orders_count",
+  "formula_readable": "AOV = shopify_net_revenue/orders_count",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "AOV"
+  ],
+  "gotchas": [
+    "Uses net revenue basis.",
+    "Can differ from True AOV when refunds are significant."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 10
+}

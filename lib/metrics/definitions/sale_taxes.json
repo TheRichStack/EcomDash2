@@ -1,0 +1,31 @@
+{
+  "id": "sale_taxes",
+  "name": "Sale Taxes",
+  "definition_short": "Sale Taxes refers the total amount customers paid in taxes, before adjusting for refunded taxes.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Sale Taxes = Total taxes paid by customers, before refunds",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Sale Taxes",
+    "sale_taxes"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 760
+}

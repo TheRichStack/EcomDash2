@@ -1,0 +1,32 @@
+{
+  "id": "meta_ad_spend",
+  "name": "Meta Ad Spend",
+  "definition_short": "Ad spend from Meta channels.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Meta Ad Spend = Ad Spend on Meta Ads",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Meta Ad Spend",
+    "meta_ad_spend",
+    "Facebook Ad Spend"
+  ],
+  "gotchas": [
+    "Includes spend synced from Meta ad accounts.",
+    "Depends on connector freshness and account scope."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 100
+}

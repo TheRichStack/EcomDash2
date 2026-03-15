@@ -1,0 +1,31 @@
+{
+  "id": "net_taxes",
+  "name": "Net Taxes",
+  "definition_short": "Net Taxes refers the total amount customers paid in taxes, after adjusting for refunded taxes.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Net Taxes = The total amount customers paid in taxes, after refunds",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Net Taxes",
+    "net_taxes"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 650
+}

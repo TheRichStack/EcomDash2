@@ -1,0 +1,31 @@
+{
+  "id": "google_all_cv",
+  "name": "Google All CV",
+  "definition_short": "Google All Conversion Value (Google All CV) refers to the revenue generated from conversions of all types (e.g. purchases, registrations, subscriptions, applications), as reported by Google.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "google"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Google All CV = Total Google-Reported All Conversion Value",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Google All CV",
+    "google_all_cv"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 480
+}

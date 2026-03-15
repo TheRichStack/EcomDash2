@@ -1,0 +1,47 @@
+{
+  "id": "true_aov",
+  "name": "True AOV",
+  "definition_short": "Average gross order revenue per order.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "order_revenue",
+    "orders_count"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "order_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "orders_count"
+    }
+  ],
+  "formula_signature": "order_revenue/orders_count",
+  "formula_readable": "True AOV = order_revenue/orders_count",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "True AOV",
+    "true_aov"
+  ],
+  "gotchas": [
+    "Uses order revenue rather than net revenue.",
+    "Useful for merchandising views of basket size."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 230
+}

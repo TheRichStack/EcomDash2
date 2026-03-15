@@ -1,0 +1,31 @@
+{
+  "id": "units_sold",
+  "name": "Units Sold",
+  "definition_short": "Units Sold refers to the total number of individual items or products that were purchased by customers.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Units Sold = The total quantity of product units ordered",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Units Sold",
+    "units_sold"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 800
+}

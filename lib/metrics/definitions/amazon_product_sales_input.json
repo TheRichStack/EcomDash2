@@ -1,0 +1,30 @@
+{
+  "id": "amazon_product_sales_input",
+  "name": "Amazon Product Sales (Placeholder Input)",
+  "definition_short": "Placeholder input for formula term: Amazon Product Sales.",
+  "unit_type": "currency",
+  "direction": "neutral",
+  "metric_type": "revenue",
+  "color_token": "revenue",
+  "sources": [
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Placeholder source/input term for \"Amazon Product Sales\".",
+  "formula_kind": "reference",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Amazon Product Sales"
+  ],
+  "gotchas": [
+    "Placeholder metric generated from formula term parsing.",
+    "Replace with concrete metric mapping when available."
+  ],
+  "notes": "Auto-generated during metrics import to preserve formula lineage display.",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "placeholder",
+  "display_order": 9000
+}

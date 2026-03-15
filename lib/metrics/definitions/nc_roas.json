@@ -1,0 +1,51 @@
+{
+  "id": "nc_roas",
+  "name": "NC ROAS",
+  "definition_short": "New Customer Return on Ad Spend (NC ROAS) measures the revenue generated from new customers relative to the advertising spend.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "new_customer_revenue",
+    "blended_ad_spend"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "new_customer_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    }
+  ],
+  "formula_signature": "new_customer_revenue/blended_ad_spend",
+  "formula_readable": "NC ROAS = New Customer Order Revenue / Blended Ad Spend",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "NC ROAS",
+    "nc_roas"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 610
+}

@@ -1,0 +1,31 @@
+{
+  "id": "google_ad_spend",
+  "name": "Google Ad Spend",
+  "definition_short": "Ad spend from Google channels.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "google"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Google Ad Spend = Ad Spend on Google ads",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Google Ad Spend",
+    "google_ad_spend"
+  ],
+  "gotchas": [
+    "Includes spend synced from Google Ads.",
+    "Depends on connector freshness and account scope."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 60
+}

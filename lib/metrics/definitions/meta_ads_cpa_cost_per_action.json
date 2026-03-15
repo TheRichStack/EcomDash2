@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_cpa_cost_per_action",
+  "name": "Meta Ads CPA (Cost per action)",
+  "definition_short": "CPA shows how much you spend on average for each action your ad drives (e.g., clicks, purchases or signups). This metric helps measure how efficiently your budget turns into meaningful results.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "CPA = total ad spend / number of user actions driven by your ad",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads CPA (Cost per action)",
+    "Meta Ads CPA (Cost per action)",
+    "meta_ads_cpa_cost_per_action"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 290
+}

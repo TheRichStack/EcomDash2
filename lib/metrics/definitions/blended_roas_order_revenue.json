@@ -1,0 +1,51 @@
+{
+  "id": "blended_roas_order_revenue",
+  "name": "Blended ROAS",
+  "definition_short": "Blended Return on Ad Spend (Blended ROAS) measures the total revenue generated from all orders relative to the total advertising spend across all marketing channels, including both channel ad spend and custom ad spend.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "order_revenue_sheet",
+    "blended_ad_spend"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "order_revenue_sheet"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    }
+  ],
+  "formula_signature": "order_revenue_sheet/blended_ad_spend",
+  "formula_readable": "Blended ROAS = Order Revenue / Blended Ad Spend",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Blended ROAS",
+    "blended_roas_order_revenue"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 260
+}

@@ -1,0 +1,31 @@
+{
+  "id": "new_customers",
+  "name": "New Customers",
+  "definition_short": "Count of first-time customers in the selected period.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Source-reported/base metric for New Customers.",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "New Customers",
+    "new_customers"
+  ],
+  "gotchas": [
+    "Depends on first-order flags from Shopify facts.",
+    "Identity resolution quality affects this metric."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 150
+}

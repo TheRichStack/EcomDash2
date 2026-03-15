@@ -1,0 +1,32 @@
+{
+  "id": "meta_conversions_purchases",
+  "name": "Meta Conversions (Purchases)",
+  "definition_short": "Meta Conversions (Purchases) represent the number of purchases on your main shop and your Meta shop, as reported by Meta.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Meta Conversions = Number of Purchases Reported by Meta",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Conversions (Purchases)",
+    "Meta Conversions (Purchases)",
+    "meta_conversions_purchases"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 380
+}

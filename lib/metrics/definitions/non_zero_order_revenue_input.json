@@ -1,0 +1,30 @@
+{
+  "id": "non_zero_order_revenue_input",
+  "name": "non zero Order Revenue (Placeholder Input)",
+  "definition_short": "Placeholder input for formula term: non zero Order Revenue.",
+  "unit_type": "currency",
+  "direction": "neutral",
+  "metric_type": "revenue",
+  "color_token": "revenue",
+  "sources": [
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Placeholder source/input term for \"non zero Order Revenue\".",
+  "formula_kind": "reference",
+  "provenance": "derived_internal",
+  "aliases": [
+    "non zero Order Revenue"
+  ],
+  "gotchas": [
+    "Placeholder metric generated from formula term parsing.",
+    "Replace with concrete metric mapping when available."
+  ],
+  "notes": "Auto-generated during metrics import to preserve formula lineage display.",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "placeholder",
+  "display_order": 9000
+}

@@ -1,0 +1,31 @@
+{
+  "id": "total_refunds",
+  "name": "Total Refunds",
+  "definition_short": "Total refunded value from Shopify orders.",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Source-reported/base metric for Total Refunds.",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Total Refunds",
+    "total_refunds"
+  ],
+  "gotchas": [
+    "Refund timing can differ from order date.",
+    "Partial refunds are included when synced."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 220
+}

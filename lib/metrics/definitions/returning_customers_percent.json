@@ -1,0 +1,51 @@
+{
+  "id": "returning_customers_percent",
+  "name": "Returning Customers Percent",
+  "definition_short": "Returning Customers Percent represents the percentage of orders placed by returning customers within a specific period relative to the total number of orders.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "returning_customer_orders_input",
+    "orders_count"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "returning_customer_orders_input"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "orders_count"
+    }
+  ],
+  "formula_signature": "returning_customer_orders_input/orders_count",
+  "formula_readable": "Returning Customers Percent = Returning Customer Orders / Total Orders",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "Returning Customers Percent",
+    "returning_customers_percent"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 750
+}

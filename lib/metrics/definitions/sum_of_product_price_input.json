@@ -1,0 +1,30 @@
+{
+  "id": "sum_of_product_price_input",
+  "name": "Sum of Product Price (Placeholder Input)",
+  "definition_short": "Placeholder input for formula term: Sum of Product Price.",
+  "unit_type": "currency",
+  "direction": "neutral",
+  "metric_type": "adjustment",
+  "color_token": "adjustment",
+  "sources": [
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Placeholder source/input term for \"Sum of Product Price\".",
+  "formula_kind": "reference",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Sum of Product Price"
+  ],
+  "gotchas": [
+    "Placeholder metric generated from formula term parsing.",
+    "Replace with concrete metric mapping when available."
+  ],
+  "notes": "Auto-generated during metrics import to preserve formula lineage display.",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "placeholder",
+  "display_order": 9000
+}

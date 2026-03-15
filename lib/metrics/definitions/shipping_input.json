@@ -1,0 +1,30 @@
+{
+  "id": "shipping_input",
+  "name": "Shipping (Placeholder Input)",
+  "definition_short": "Placeholder input for formula term: Shipping.",
+  "unit_type": "currency",
+  "direction": "neutral",
+  "metric_type": "adjustment",
+  "color_token": "adjustment",
+  "sources": [
+    "custom"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Placeholder source/input term for \"Shipping\".",
+  "formula_kind": "reference",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Shipping"
+  ],
+  "gotchas": [
+    "Placeholder metric generated from formula term parsing.",
+    "Replace with concrete metric mapping when available."
+  ],
+  "notes": "Auto-generated during metrics import to preserve formula lineage display.",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "placeholder",
+  "display_order": 9000
+}

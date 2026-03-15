@@ -1,0 +1,33 @@
+name: EcomDash2 Hourly Sync
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+jobs:
+  hourly-sync:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run hourly sync
+        run: npm run jobs:hourly
+        env:
+          ECOMDASH2_BACKEND_SOURCE: turso
+          ECOMDASH2_TURSO_URL: ${{ secrets.ECOMDASH2_TURSO_URL }}
+          ECOMDASH2_TURSO_AUTH_TOKEN: ${{ secrets.ECOMDASH2_TURSO_AUTH_TOKEN }}
+          ECOMDASH2_DEFAULT_WORKSPACE_ID: ${{ secrets.ECOMDASH2_DEFAULT_WORKSPACE_ID }}
+          DATA_ENCRYPTION_KEY: ${{ secrets.DATA_ENCRYPTION_KEY }}

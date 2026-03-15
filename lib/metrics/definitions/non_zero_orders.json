@@ -1,0 +1,31 @@
+{
+  "id": "non_zero_orders",
+  "name": "Non-Zero Orders",
+  "definition_short": "Non-Zero Orders refers to the total number of orders with a revenue greater than zero.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Non-Zero Orders = Number of Orders with Revenue > $0",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Non-Zero Orders",
+    "non_zero_orders"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 690
+}

@@ -1,0 +1,32 @@
+{
+  "id": "orders_count",
+  "name": "Orders Count",
+  "definition_short": "Total number of Shopify orders in the selected period.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Orders = The total count of order records",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Orders Count",
+    "orders_count",
+    "Orders"
+  ],
+  "gotchas": [
+    "Order counting rules follow Shopify order records.",
+    "Canceled order treatment follows upstream ingestion logic."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 170
+}

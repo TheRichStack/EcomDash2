@@ -1,0 +1,51 @@
+{
+  "id": "ncpa_new_customer_orders",
+  "name": "NCPA",
+  "definition_short": "New Customer Cost Per Acquisition (NCPA, New Customer CPA) measures the cost to acquire a new customer based on blended ad spend.",
+  "unit_type": "currency",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "blended_ad_spend",
+    "new_customer_orders"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "new_customer_orders"
+    }
+  ],
+  "formula_signature": "blended_ad_spend/new_customer_orders",
+  "formula_readable": "NCPA = Blended Ad Spend / New Customer Orders",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "NCPA",
+    "ncpa_new_customer_orders"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 620
+}

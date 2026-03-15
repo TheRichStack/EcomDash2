@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_ctr_click_through_rate",
+  "name": "Meta Ads CTR (click-through rate)",
+  "definition_short": "This performance metric tells you which percentage of people saw your ad and thought, “Yep, I’ll click that.” A high CTR is one of the first signals that your ad creative works. But clicks aren’t sales: You also need to keep an eye on other Meta ad metrics (e.g., ad spend and conversions).",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "CTR = link clicks / impressions",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads CTR (click-through rate)",
+    "Meta Ads CTR (click-through rate)",
+    "meta_ads_ctr_click_through_rate"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 320
+}

@@ -1,0 +1,31 @@
+{
+  "id": "net_profit",
+  "name": "Net Profit",
+  "definition_short": "Net profit is the total revenue from product sales after deducting all costs, including advertising spend, cost of goods, shipping costs, payment gateway costs, handling fees, taxes, and any other operational expenses.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Net Profit = Main Sales Platform Order Revenue (+ Amazon Product Sales) - Refunds - Ad Spend - Total Costs",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Net Profit",
+    "net_profit"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "Mentions Amazon in source text. Amazon source type is deferred in this phase.",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 640
+}

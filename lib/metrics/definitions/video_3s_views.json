@@ -1,0 +1,26 @@
+{
+  "id": "video_3s_views",
+  "name": "3-Second Video Views",
+  "definition_short": "Number of times a video ad was watched for at least 3 seconds. TikTok approximation uses 2-second views as the closest available threshold.",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": ["meta", "tiktok"],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "3-Second Video Views = platform-reported 3-second view count",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "is_base": true,
+  "used_in_dashboard": false,
+  "aliases": ["3s views", "three second views", "video views"],
+  "gotchas": [
+    "TikTok uses 2-second views as the closest equivalent — threshold differs from Meta's 3-second definition",
+    "Only populated for video ad formats; image ads will always show 0"
+  ],
+  "notes": "",
+  "implementation_status": "implemented",
+  "display_order": 200
+}

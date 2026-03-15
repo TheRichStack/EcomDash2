@@ -1,0 +1,65 @@
+{
+  "id": "order_revenue_sheet",
+  "name": "Order Revenue",
+  "definition_short": "Order Revenue refers to the revenue earned after shipping, taxes, and discounts (before refunds).",
+  "unit_type": "currency",
+  "direction": "lower_is_better",
+  "metric_type": "cost",
+  "color_token": "cost",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [
+    "gross_sales",
+    "shipping_input",
+    "taxes_input",
+    "discounts"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "gross_sales"
+    },
+    {
+      "type": "operator",
+      "value": "+"
+    },
+    {
+      "type": "metric",
+      "metric_id": "shipping_input"
+    },
+    {
+      "type": "operator",
+      "value": "+"
+    },
+    {
+      "type": "metric",
+      "metric_id": "taxes_input"
+    },
+    {
+      "type": "operator",
+      "value": "-"
+    },
+    {
+      "type": "metric",
+      "metric_id": "discounts"
+    }
+  ],
+  "formula_signature": "gross_sales+shipping_input+taxes_input-discounts",
+  "formula_readable": "Order Revenue = Gross Sales + Shipping + Taxes - Discounts",
+  "formula_kind": "lineage",
+  "provenance": "derived_internal",
+  "aliases": [
+    "Order Revenue",
+    "order_revenue_sheet"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 700
+}

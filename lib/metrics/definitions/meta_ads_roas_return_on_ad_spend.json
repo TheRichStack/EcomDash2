@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_roas_return_on_ad_spend",
+  "name": "Meta Ads ROAS (return on ad spend)",
+  "definition_short": "When your goal is revenue, ROAS is the metric you should watch like a hawk. It shows how much money you earn for every dollar spent on your ads. For example, a ROAS of “3” means you make $3 for every $1 spent.",
+  "unit_type": "percent",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "ROAS = revenue generated from ads / ad spend",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads ROAS (return on ad spend)",
+    "Meta Ads ROAS (return on ad spend)",
+    "meta_ads_roas_return_on_ad_spend"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 360
+}

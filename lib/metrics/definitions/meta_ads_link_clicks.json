@@ -1,0 +1,32 @@
+{
+  "id": "meta_ads_link_clicks",
+  "name": "Meta Ads Link clicks",
+  "definition_short": "This engagement metric tells you how many people take meaningful action (e.g., they click through from your ad to your intended destination).",
+  "unit_type": "count",
+  "direction": "higher_is_better",
+  "metric_type": "volume",
+  "color_token": "volume",
+  "sources": [
+    "meta"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Link clicks = the number of taps on your ad that lead users to a destination you define (e.g., your website, app, lead form or product page)",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Facebook Ads Link clicks",
+    "Meta Ads Link clicks",
+    "meta_ads_link_clicks"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 350
+}

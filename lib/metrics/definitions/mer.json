@@ -1,0 +1,50 @@
+{
+  "id": "mer",
+  "name": "MER",
+  "definition_short": "Shopify net revenue generated per unit of blended ad spend.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify",
+    "meta",
+    "google",
+    "tiktok",
+    "custom"
+  ],
+  "dependencies": [
+    "shopify_net_revenue",
+    "blended_ad_spend"
+  ],
+  "formula_tokens": [
+    {
+      "type": "metric",
+      "metric_id": "shopify_net_revenue"
+    },
+    {
+      "type": "operator",
+      "value": "/"
+    },
+    {
+      "type": "metric",
+      "metric_id": "blended_ad_spend"
+    }
+  ],
+  "formula_signature": "shopify_net_revenue/blended_ad_spend",
+  "formula_readable": "MER = shopify_net_revenue/blended_ad_spend",
+  "formula_kind": "lineage",
+  "provenance": "blended_hybrid",
+  "aliases": [
+    "MER"
+  ],
+  "gotchas": [
+    "Uses Shopify net revenue, not platform-attributed revenue.",
+    "Inverse of MER is ad cost ratio."
+  ],
+  "notes": "",
+  "used_in_dashboard": true,
+  "is_base": false,
+  "implementation_status": "implemented",
+  "display_order": 90
+}

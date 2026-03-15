@@ -1,0 +1,31 @@
+{
+  "id": "net_margin_comprehensive",
+  "name": "Net Margin",
+  "definition_short": "Net Margin represents the percentage of total order revenue that remains as net profit after deducting all associated costs, including refunds, advertising spend, cost of goods, shipping costs, payment gateway costs, handling fees, taxes, and other operational expenses.",
+  "unit_type": "ratio",
+  "direction": "higher_is_better",
+  "metric_type": "ratio",
+  "color_token": "ratio",
+  "sources": [
+    "shopify"
+  ],
+  "dependencies": [],
+  "formula_tokens": [],
+  "formula_signature": "base",
+  "formula_readable": "Net Margin = (Main Sales Platform Order Revenue (+ Amazon Product Sales) - Refunds - Ad Spend - Total Costs) / Order Revenue",
+  "formula_kind": "reference",
+  "provenance": "source_reported",
+  "aliases": [
+    "Net Margin",
+    "net_margin_comprehensive"
+  ],
+  "gotchas": [
+    "Imported from docs/metrics-condensed.md.",
+    "Formula shown for transparency and may follow source-specific reporting definitions."
+  ],
+  "notes": "Mentions Amazon in source text. Amazon source type is deferred in this phase.",
+  "used_in_dashboard": false,
+  "is_base": true,
+  "implementation_status": "implemented",
+  "display_order": 630
+}
