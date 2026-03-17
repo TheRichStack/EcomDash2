@@ -4,6 +4,12 @@ export type AgentProvider = "openai" | "anthropic"
 
 export type AgentExecutionMode = "direct" | "tools" | "worker"
 
+export type AgentRunStatus =
+  | "success"
+  | "failed"
+  | "needs_confirmation"
+  | "blocked"
+
 export type AgentPresetId =
   | "daily-trading-pulse"
   | "anomaly-and-issue-scan"
