@@ -536,7 +536,7 @@ export function AgentChatSheet() {
 
   async function sendMessage(
     message: string,
-    confirmedOps: string[] = [],
+    confirmedOps?: string[],
     options?: {
       conversationIdOverride?: string | null
       forceNewConversation?: boolean
@@ -580,20 +580,37 @@ export function AgentChatSheet() {
     setActiveTab("chat")
 
     try {
+      const requestBody: {
+        confirmedOps?: string[]
+        context: {
+          compare: typeof requestContext.compare
+          from: string
+          to: string
+          workspaceId: string
+        }
+        conversationId: string | null
+        forceNewConversation: boolean
+        message: string
+        presetId?: AgentPresetId
+      } = {
+        context: {
+          compare: requestContext.compare,
+          from: requestContext.from,
+          to: requestContext.to,
+          workspaceId: requestContext.workspaceId,
+        },
+        conversationId: targetConversationId,
+        forceNewConversation: Boolean(options?.forceNewConversation),
+        message: trimmed,
+        presetId: options?.presetId,
+      }
+
+      if (Array.isArray(confirmedOps)) {
+        requestBody.confirmedOps = confirmedOps
+      }
+
       const response = await fetch("/api/agent/chat", {
-        body: JSON.stringify({
-          confirmedOps,
-          context: {
-            compare: requestContext.compare,
-            from: requestContext.from,
-            to: requestContext.to,
-            workspaceId: requestContext.workspaceId,
-          },
-          conversationId: targetConversationId,
-          forceNewConversation: Boolean(options?.forceNewConversation),
-          message: trimmed,
-          presetId: options?.presetId,
-        }),
+        body: JSON.stringify(requestBody),
         headers: {
           "Content-Type": "application/json",
         },
