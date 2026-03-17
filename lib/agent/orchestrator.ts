@@ -93,7 +93,7 @@ type DirectTurnPlan = {
   warnings: string[]
 }
 
-type DateClarificationOption = {
+export type DateClarificationOption = {
   label: string
   message: string
 }
@@ -322,7 +322,7 @@ function inspectScriptDispatchOps(scriptBody: string) {
   }
 }
 
-function resolvePendingWorkerPlan(input: {
+export function resolvePendingWorkerPlanForTest(input: {
   payload: Record<string, unknown>
   pendingRunId: string
   workspaceId: string
@@ -395,6 +395,14 @@ function resolvePendingWorkerPlan(input: {
       why,
     } satisfies PendingWorkerPlan,
   }
+}
+
+function resolvePendingWorkerPlan(input: {
+  payload: Record<string, unknown>
+  pendingRunId: string
+  workspaceId: string
+}) {
+  return resolvePendingWorkerPlanForTest(input)
 }
 
 function buildBlockedAssistantReply(reason: string) {
@@ -1037,8 +1045,13 @@ function resolveTurnPlan(
   }
 }
 
-function serializeConversationHistory(input: {
-  messages: Awaited<ReturnType<typeof listAgentMessages>>
+type PromptHistoryMessage = {
+  role: string
+  content: string
+}
+
+export function serializeConversationHistoryForTest(input: {
+  messages: PromptHistoryMessage[]
   summaryText?: string | null
 }) {
   const lastUserTurn = [...input.messages]
@@ -1067,8 +1080,22 @@ function serializeConversationHistory(input: {
   ].join("\n\n")
 }
 
-function buildPromptToolEvidencePayload(
-  toolResults: AgentToolResult[]
+function serializeConversationHistory(input: {
+  messages: Awaited<ReturnType<typeof listAgentMessages>>
+  summaryText?: string | null
+}) {
+  return serializeConversationHistoryForTest(input)
+}
+
+type PromptToolEvidenceInput = {
+  evidence?: Record<string, unknown> | null
+  label: string
+  name: string
+  summary: string
+}
+
+export function buildPromptToolEvidencePayloadForTest(
+  toolResults: PromptToolEvidenceInput[]
 ): PromptToolEvidence[] {
   return toolResults.map((tool) => ({
     evidence: tool.evidence ?? null,
@@ -1076,6 +1103,12 @@ function buildPromptToolEvidencePayload(
     name: tool.name,
     summary: compactText(tool.summary, AGENT_PROMPT_TOOL_SUMMARY_CHARS),
   }))
+}
+
+function buildPromptToolEvidencePayload(
+  toolResults: AgentToolResult[]
+): PromptToolEvidence[] {
+  return buildPromptToolEvidencePayloadForTest(toolResults)
 }
 
 function buildRollingConversationSummary(input: {
@@ -3581,7 +3614,7 @@ function buildDirectAnswerPrompt(input: {
   ].join("\n\n")
 }
 
-function buildDateClarificationPrompt(input: {
+export function buildDateClarificationPromptForTest(input: {
   question: string
   options: DateClarificationOption[]
 }) {
@@ -3593,6 +3626,13 @@ function buildDateClarificationPrompt(input: {
       ? `Choose one of these options or type your own date range: ${optionLabels.join(", ")}.`
       : "Please share the date range to use (for example: 2026-02-01 to 2026-02-29).",
   ].join("\n")
+}
+
+function buildDateClarificationPrompt(input: {
+  question: string
+  options: DateClarificationOption[]
+}) {
+  return buildDateClarificationPromptForTest(input)
 }
 
 export async function runAgentTurn(input: {

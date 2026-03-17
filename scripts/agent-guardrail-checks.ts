@@ -3,8 +3,20 @@ import { existsSync } from "node:fs"
 import { mkdir, rename, rm, writeFile } from "node:fs/promises"
 import path from "node:path"
 
+import {
+  AGENT_PROMPT_HISTORY_ASSISTANT_CHARS,
+  AGENT_PROMPT_HISTORY_SUMMARY_CHARS,
+  AGENT_PROMPT_HISTORY_USER_CHARS,
+  AGENT_PROMPT_TOOL_SUMMARY_CHARS,
+} from "@/lib/agent/constants"
 import { sanitizeAgentSqlQuery } from "@/lib/agent/broker"
 import { executeAgentRunLocally } from "@/lib/agent/executor"
+import {
+  buildDateClarificationPromptForTest,
+  buildPromptToolEvidencePayloadForTest,
+  resolvePendingWorkerPlanForTest,
+  serializeConversationHistoryForTest,
+} from "@/lib/agent/orchestrator"
 import { resetAgentPresetCachesForTests, listAgentPresets } from "@/lib/agent/presets"
 import { ECOMDASH2_TABLE_BOUNDARY } from "@/lib/db/boundary"
 import { env } from "@/lib/env"
@@ -175,10 +187,286 @@ async function verifyRunbookReleaseGateFailClosed() {
   }
 }
 
+function verifyPendingWorkerPlanParserFailClosed() {
+  const workspaceId = "guardrail-check-workspace"
+  const pendingRunId = "guardrail-check-pending-plan"
+
+  const malformedCases = [
+    {
+      expected: "missing a saved script",
+      label: "missing-script",
+      payload: {
+        context: {
+          compare: "previous_period",
+          from: "2026-01-01",
+          to: "2026-01-31",
+          workspaceId,
+        },
+        plan: {
+          requestedOps: ["jobs:hourly"],
+          scriptBody: "",
+          why: "verify parser",
+        },
+        question: "What changed in January?",
+      },
+    },
+    {
+      expected: "missing the saved execution question",
+      label: "missing-question",
+      payload: {
+        context: {
+          compare: "previous_period",
+          from: "2026-01-01",
+          to: "2026-01-31",
+          workspaceId,
+        },
+        plan: {
+          requestedOps: ["jobs:hourly"],
+          scriptBody: "return { ok: true }",
+          why: "verify parser",
+        },
+        question: "",
+      },
+    },
+    {
+      expected: "missing saved execution context",
+      label: "missing-context",
+      payload: {
+        context: {
+          compare: "previous_period",
+          from: "",
+          to: "2026-01-31",
+          workspaceId,
+        },
+        plan: {
+          requestedOps: ["jobs:hourly"],
+          scriptBody: "return { ok: true }",
+          why: "verify parser",
+        },
+        question: "What changed in January?",
+      },
+    },
+    {
+      expected: "has an invalid compare mode",
+      label: "invalid-compare",
+      payload: {
+        context: {
+          compare: "rolling",
+          from: "2026-01-01",
+          to: "2026-01-31",
+          workspaceId,
+        },
+        plan: {
+          requestedOps: ["jobs:hourly"],
+          scriptBody: "return { ok: true }",
+          why: "verify parser",
+        },
+        question: "What changed in January?",
+      },
+    },
+    {
+      expected: "workspace does not match",
+      label: "workspace-mismatch",
+      payload: {
+        context: {
+          compare: "previous_period",
+          from: "2026-01-01",
+          to: "2026-01-31",
+          workspaceId: "other-workspace",
+        },
+        plan: {
+          requestedOps: ["jobs:hourly"],
+          scriptBody: "return { ok: true }",
+          why: "verify parser",
+        },
+        question: "What changed in January?",
+      },
+    },
+  ] as const
+
+  const blockedOutcomes = malformedCases.map((testCase) => {
+    const resolution = resolvePendingWorkerPlanForTest({
+      payload: testCase.payload,
+      pendingRunId,
+      workspaceId,
+    })
+    assert.equal(resolution.plan, null, `Expected ${testCase.label} payload to be blocked.`)
+    assert.match(
+      String(resolution.blockedReason ?? ""),
+      new RegExp(testCase.expected, "i"),
+      `Expected ${testCase.label} blocked reason to include "${testCase.expected}".`
+    )
+    return `${testCase.label}=blocked`
+  })
+
+  const validResolution = resolvePendingWorkerPlanForTest({
+    payload: {
+      context: {
+        compare: "previous_period",
+        from: "2026-02-01",
+        to: "2026-02-28",
+        workspaceId,
+      },
+      plan: {
+        requestedOps: ["jobs:hourly", "jobs:reconcile", "jobs:not-allowed"],
+        scriptBody: "return { ok: true }",
+        why: "planned deterministic check",
+      },
+      question: "Review February performance.",
+    },
+    pendingRunId,
+    workspaceId,
+  })
+
+  assert.equal(validResolution.blockedReason, null, "Expected valid payload to parse.")
+  assert.notEqual(validResolution.plan, null, "Expected valid payload to produce a plan.")
+  assert.deepEqual(
+    validResolution.plan?.requestedOps,
+    ["jobs:hourly", "jobs:reconcile"],
+    "Expected parsed plan to keep only allowlisted operations."
+  )
+  assert.equal(validResolution.plan?.question, "Review February performance.")
+  assert.equal(validResolution.plan?.context.workspaceId, workspaceId)
+  assert.equal(validResolution.plan?.pendingRunId, pendingRunId)
+
+  console.log(
+    `[pending-plan-parser] ${blockedOutcomes.join(" ")} valid=parsed requestedOps=${validResolution.plan?.requestedOps.join(",")}`
+  )
+}
+
+function readSectionText(serialized: string, heading: string, nextHeading: string) {
+  const startToken = `${heading}\n`
+  const endToken = `\n\n${nextHeading}\n`
+  const start = serialized.indexOf(startToken)
+
+  assert.notEqual(start, -1, `Missing heading: ${heading}`)
+  const from = start + startToken.length
+  const end = serialized.indexOf(endToken, from)
+  assert.notEqual(end, -1, `Missing next heading marker after: ${heading}`)
+
+  return serialized.slice(from, end)
+}
+
+function verifyHistoryBounding() {
+  const firstUser = "first-user-turn " + "u".repeat(240)
+  const secondUser = "last-user-turn " + "u".repeat(900)
+  const firstAssistant = "first-assistant-turn " + "a".repeat(240)
+  const secondAssistant = "last-assistant-turn " + "a".repeat(1200)
+  const longSummary = "summary " + "s".repeat(1600)
+
+  const serialized = serializeConversationHistoryForTest({
+    messages: [
+      { content: firstUser, role: "user" },
+      { content: firstAssistant, role: "assistant" },
+      { content: secondUser, role: "user" },
+      { content: secondAssistant, role: "assistant" },
+    ],
+    summaryText: longSummary,
+  })
+
+  assert.match(serialized, /^Conversation summary:\n/m)
+  assert.match(serialized, /\n\nLast user turn:\n/m)
+  assert.match(serialized, /\n\nLast assistant turn:\n/m)
+
+  const summarySection = readSectionText(serialized, "Conversation summary:", "Last user turn:")
+  const userSection = readSectionText(serialized, "Last user turn:", "Last assistant turn:")
+  const assistantSection = serialized.slice(serialized.indexOf("Last assistant turn:\n") + "Last assistant turn:\n".length)
+
+  assert(!summarySection.includes("first-user-turn"), "Summary section should not include old user turns.")
+  assert(!userSection.includes("first-user-turn"), "History should not include non-last user turn.")
+  assert(!assistantSection.includes("first-assistant-turn"), "History should not include non-last assistant turn.")
+  assert(userSection.includes("last-user-turn"), "History should include last user turn.")
+  assert(assistantSection.includes("last-assistant-turn"), "History should include last assistant turn.")
+
+  assert(
+    summarySection.length <= AGENT_PROMPT_HISTORY_SUMMARY_CHARS,
+    "Summary section exceeded configured history summary cap."
+  )
+  assert(
+    userSection.length <= AGENT_PROMPT_HISTORY_USER_CHARS,
+    "User section exceeded configured history user cap."
+  )
+  assert(
+    assistantSection.length <= AGENT_PROMPT_HISTORY_ASSISTANT_CHARS,
+    "Assistant section exceeded configured history assistant cap."
+  )
+
+  console.log(
+    `[history-bounding] summaryLen=${summarySection.length}/${AGENT_PROMPT_HISTORY_SUMMARY_CHARS} userLen=${userSection.length}/${AGENT_PROMPT_HISTORY_USER_CHARS} assistantLen=${assistantSection.length}/${AGENT_PROMPT_HISTORY_ASSISTANT_CHARS}`
+  )
+}
+
+function verifyEvidenceOnlyPromptShaping() {
+  const payload = buildPromptToolEvidencePayloadForTest([
+    {
+      evidence: { freshness: "stale", updatedAt: "2026-03-17T00:00:00.000Z" },
+      label: "Overview summary",
+      name: "overview_summary",
+      summary: "Signal ".repeat(400),
+    },
+  ])
+
+  assert.equal(payload.length, 1, "Expected one tool evidence payload entry.")
+  const first = payload[0]
+  const keys = Object.keys(first).sort()
+
+  assert.deepEqual(
+    keys,
+    ["evidence", "label", "name", "summary"],
+    "Tool evidence payload should only expose compact prompt-safe keys."
+  )
+  assert.equal(
+    typeof (first as { data?: unknown }).data,
+    "undefined",
+    "Tool evidence payload must not include raw data."
+  )
+  assert(
+    first.summary.length <= AGENT_PROMPT_TOOL_SUMMARY_CHARS,
+    "Tool summary exceeded configured prompt summary cap."
+  )
+
+  console.log(
+    `[evidence-only-shape] keys=${keys.join(",")} summaryLen=${first.summary.length}/${AGENT_PROMPT_TOOL_SUMMARY_CHARS} hasData=${String("data" in (first as Record<string, unknown>))}`
+  )
+}
+
+function verifyDateClarificationDeterminism() {
+  const question = "Was revenue up?"
+  const options = [
+    { label: "Yesterday", message: "Use yesterday." },
+    { label: "Last 7 days", message: "Use last 7 days." },
+    { label: "This month", message: "Use this month to date." },
+  ]
+  const promptA = buildDateClarificationPromptForTest({
+    options,
+    question,
+  })
+  const promptB = buildDateClarificationPromptForTest({
+    options,
+    question,
+  })
+
+  assert.equal(
+    promptA,
+    promptB,
+    "Date clarification prompt should be deterministic for same input."
+  )
+  assert.match(
+    promptA,
+    /^To answer this well, I need the date range for: Was revenue up\?\nChoose one of these options or type your own date range: Yesterday, Last 7 days, This month\.$/
+  )
+
+  console.log(`[date-clarification-determinism] output="${promptA}"`)
+}
+
 async function main() {
   await verifyOpDispatchAllowlist()
   verifySqlRowCapEnforcement()
   await verifyRunbookReleaseGateFailClosed()
+  verifyPendingWorkerPlanParserFailClosed()
+  verifyHistoryBounding()
+  verifyEvidenceOnlyPromptShaping()
+  verifyDateClarificationDeterminism()
   console.log("agent-guardrail-checks: PASS")
 }
 
