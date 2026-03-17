@@ -18,6 +18,16 @@ function readPositiveIntEnv(names: readonly string[], fallback: number) {
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
 }
 
+function readBooleanEnv(names: readonly string[], fallback = false) {
+  const raw = readFirstEnv(names).toLowerCase()
+
+  if (!raw) {
+    return fallback
+  }
+
+  return raw === "1" || raw === "true" || raw === "yes"
+}
+
 function parseWorkspaceOption(entry: string): DashboardWorkspaceOption | null {
   const [rawId, rawLabel] = entry.split(":")
   const id = String(rawId ?? "").trim()
@@ -106,6 +116,46 @@ export const env = {
   dashboardSession: {
     userId: readFirstEnv(["ECOMDASH2_SESSION_USER_ID"], "local-admin"),
     email: readFirstEnv(["ECOMDASH2_SESSION_EMAIL"]),
+  },
+  agent: {
+    executorUrl: readFirstEnv(["ECOMDASH2_AGENT_EXECUTOR_URL"]),
+    enableWorker: readBooleanEnv(["ECOMDASH2_AGENT_ENABLE_WORKER"], false),
+    sharedSecret: readFirstEnv([
+      "ECOMDASH2_AGENT_SHARED_SECRET",
+      "DATA_ENCRYPTION_KEY",
+    ]),
+    routerModels: {
+      openai: readFirstEnv(["ECOMDASH2_AGENT_ROUTER_MODEL_OPENAI"]),
+      anthropic: readFirstEnv(["ECOMDASH2_AGENT_ROUTER_MODEL_ANTHROPIC"]),
+    },
+    defaultModels: {
+      openai: readFirstEnv(
+        ["ECOMDASH2_AGENT_DEFAULT_OPENAI_MODEL"],
+        "gpt-5.4"
+      ),
+      anthropic: readFirstEnv(
+        ["ECOMDASH2_AGENT_DEFAULT_ANTHROPIC_MODEL"],
+        "claude-sonnet-4-5"
+      ),
+    },
+    sqlMaxRows: readPositiveIntEnv(["ECOMDASH2_AGENT_SQL_MAX_ROWS"], 500),
+    datasetRowLimit: readPositiveIntEnv(
+      ["ECOMDASH2_AGENT_DATASET_ROW_LIMIT"],
+      200
+    ),
+    budgetUsdPerDay: readPositiveIntEnv(
+      ["ECOMDASH2_AGENT_BUDGET_USD_PER_DAY"],
+      5
+    ),
+    budgetUsdPerMonth: readPositiveIntEnv(
+      ["ECOMDASH2_AGENT_BUDGET_USD_PER_MONTH"],
+      250
+    ),
+    labBudgetUsdPerRun: readPositiveIntEnv(
+      ["ECOMDASH2_AGENT_LAB_BUDGET_USD_PER_RUN"],
+      2
+    ),
+    allowInlineOps: readBooleanEnv(["ECOMDASH2_AGENT_ALLOW_INLINE_OPS"], false),
   },
   backend: {
     source: resolveBackendSource(),
