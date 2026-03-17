@@ -1,97 +1,174 @@
-# EcomDash2 Agent Rules
+# EcomDash2 — Agent Guide
 
-This repository is the implementation root for EcomDash2.
+This file is for agents operating in this repository.
 
-## Primary objective
+There are two modes. Read the one that matches your current task.
 
-Build and maintain EcomDash2 as its own app, job runtime, and operating surface while it continues to use the shared Turso database.
+---
 
-Do not rebuild from markdown alone.
+## Mode A — Helping a founder set up the app
 
-Do not copy V1 UI complexity into the new app.
+You are helping a non-technical founder get EcomDash2 running from scratch. They may have no prior development experience.
 
-## Source of truth
+### Your job
 
-Use these docs first:
+Walk the founder through [SETUP.md](SETUP.md) step by step.
 
-- `docs/ecomdash2/README.md`
-- `docs/ecomdash2/rebuild-plan.md`
-- `docs/ecomdash2/design-philosophy.md`
-- `docs/ecomdash2/metrics-engine.md`
-- `docs/ecomdash2/backend-boundary.md`
-- `docs/ecomdash2/ui-guardrails.md`
-- `docs/ecomdash2/dashboard-patterns.md`
-- `docs/ecomdash2/forbidden-abstractions.md`
-- relevant file under `docs/ecomdash2/page-specs/`
-- `docs/ecomdash2/agent-operating-model.md`
-- `docs/ecomdash2/post-extraction-checklist.md` when the repo has just been split out
+You can:
 
-If a legacy V1 implementation conflicts with the EcomDash2 docs, the EcomDash2 docs win.
+- Run commands on their behalf (`npm install`, `vercel`, `gh`, `npm run db:migrate:apply`, etc.)
+- Help them find and correctly format credentials from each platform
+- Diagnose errors and explain what went wrong in plain terms
+- Confirm each step worked before moving to the next
 
-## Workspace model
+### Setup sequence
 
-- the repository root is the implementation target
-- EcomDash2 owns its app runtime, jobs, connectors, workflows, CI, and keep-boundary migrations
-- the shared Turso database remains intentional for the current phase
-- legacy V1 code may not be locally present after extraction; rely on the EcomDash2 docs first
+1. Create Turso database → copy URL and auth token
+2. Copy `.env.example` to `.env.local` and fill in core vars
+3. Add connector credentials for each platform they use (Shopify, Meta, Google, TikTok, Klaviyo)
+4. Run `npm run db:migrate:apply`
+5. Run backfill: `npm run jobs:backfill -- --from=YYYY-MM-DD --to=YYYY-MM-DD --resume`
+6. Run `npm run jobs:contracts:refresh`
+7. Start dev server (`npm run dev`) and verify dashboard loads
+8. Deploy to Vercel (`vercel --prod`)
+9. Set GitHub Actions secrets (`gh secret set` or via the GitHub UI)
+10. Optionally configure the in-dashboard AI agent API key via Settings
 
-## Read and edit rules
+### Questions to ask upfront
 
-Default read scope:
+- Which platforms do they use? (Shopify / Meta / Google / TikTok / Klaviyo)
+- What currency? (default is GBP — change `ECOMDASH2_DEFAULT_CURRENCY` if needed)
+- What date range do they want to backfill from?
 
-- the whole repository
-- `docs/ecomdash2/**` first
-- any runtime, route, or job files explicitly named in the work order
+### Connector credential requirements
 
-Default edit scope:
+| Platform | Required env vars |
+|----------|-------------------|
+| Shopify | `SHOPIFY_STORE_DOMAIN`, `SHOPIFY_ACCESS_TOKEN` |
+| Meta | `META_ACCESS_TOKEN`, `META_AD_ACCOUNT_ID` |
+| Google (direct) | `GOOGLE_ADS_CUSTOMER_ID`, `GOOGLE_ADS_DEVELOPER_TOKEN`, `GOOGLE_ADS_CLIENT_ID`, `GOOGLE_ADS_CLIENT_SECRET`, `GOOGLE_ADS_REFRESH_TOKEN` |
+| Google (bridge) | `GOOGLE_ADS_TRANSPORT=bridge` |
+| TikTok | `TIKTOK_ACCESS_TOKEN`, `TIKTOK_ADVERTISER_ID` |
+| Klaviyo | `KLAVIYO_PRIVATE_API_KEY`, `KLAVIYO_CONVERSION_METRIC_ID` |
 
-- the whole repository, unless the work order narrows it further
+### Diagnosing failures
 
-If a work order references legacy V1 files that are not present locally, continue from the EcomDash2 docs, tracker, and app-owned runtime files, then call out the missing reference explicitly.
+- **DB connection errors** — check `ECOMDASH2_TURSO_URL` and `ECOMDASH2_TURSO_AUTH_TOKEN` are correct
+- **Connector errors** — run `npm run jobs:hourly` locally to see which connectors report missing env vars
+- **Vercel deploy errors** — run `vercel inspect --logs` or check the Vercel dashboard
+- **GitHub Actions failures** — run `gh run view --log-failed` to identify the failing step
 
-## Hard constraints
+### Note on automated agentic setup
 
-- Do not import V1 UI components into EcomDash2.
-- Do not copy whole V1 feature modules into EcomDash2.
-- Do not make EcomDash2 depend on external sibling app code.
-- Do not use legacy diagnostics, anomaly, brief, diagnose, investigate, change-log, or action-rail systems.
-- Do not write new EcomDash2 UI state into legacy V1-specific config keys.
-- Namespace EcomDash2-owned config keys, for example `ecomdash2.*`.
-- Do not invent new UI wrapper families outside the approved dashboard patterns.
-- Keep page-specific markup inline unless reuse is proven.
+A future version of this project will allow an agent to run the full setup automatically (Turso provisioning, Vercel deploy, GitHub secrets, backfill) in a single session with minimal user input. This is not yet built. For now, use SETUP.md as the guide and assist the founder through each step.
 
-## Allowed reuse
+---
 
-- data contracts
-- schema and migrations as reference
-- server query logic and formulas
-- workspace-aware auth and scoping patterns
-- demo data patterns
-- proven calculation logic
+## Mode B — Building or maintaining the codebase
 
-Reuse behavior and data shapes deliberately. Rebuild UI structure natively in the new app.
+You are helping add features, fix bugs, or maintain EcomDash2.
 
-## Fresh-agent workflow
+### Read first
 
-- Read only the files named in the PM work order.
-- Do not scan the whole repo unless the work order requires it.
-- If the work order points to legacy V1 files, use them as reference only when they are available.
-- If legacy V1 files are not available locally, continue from the EcomDash2 docs, tracker, and app-owned runtime files.
-- Keep the final implementation inside EcomDash2-owned files.
+Before starting any build task, read the relevant docs:
 
-## Delivery pattern
+- `docs/ecomdash2/README.md` — product scope and what exists today
+- `docs/ecomdash2/design-philosophy.md` — reporting-first, no exception-based UI
+- `docs/ecomdash2/backend-boundary.md` — which tables this app owns
+- `docs/UI_BUILDING.md` — UI rules and the inline-first principle
+- `docs/ecomdash2/forbidden-abstractions.md` — what not to build
+- `docs/ecomdash2/dashboard-patterns.md` — approved page structure
+- `docs/ecomdash2/ui-guardrails.md` — component promotion rules
+- `docs/ecomdash2/metrics-engine.md` — metric definitions and registry
+- The relevant file under `docs/ecomdash2/page-specs/` if working on a specific page
+- `docs/ecomdash2/agentic-brain-implementation.md` if working on the in-dashboard agent
+
+### Source of truth priority
+
+1. `docs/ecomdash2/` specs — always win
+2. Existing app-owned runtime files
+3. Inference from the codebase
+4. Ask for clarification if genuinely ambiguous — do not widen scope casually
+
+### Hard constraints
+
+- Do not invent new UI wrapper families outside the approved dashboard patterns
+- Do not add diagnostics, anomaly scoring, change-log, or action-rail systems
+- Do not write EcomDash2 state into config keys that are not namespaced `ecomdash2.*`
+- Do not promote a component to shared unless it is used in 2+ real pages and the props are stable
+- Keep page-specific markup inline until reuse is real
+- Keep `components/ui/` reserved for shadcn CLI output only — do not edit these files manually
+- `npm run lint` must pass — do not suppress meaningful rules to force a pass
+
+### Coding style
+
+- TypeScript everywhere
+- Prefer small, direct components over clever abstractions
+- Kebab-case file names
+- Use the existing `@/` import alias
+- Name files after what they render or export — avoid vague buckets like `helpers.ts` or `misc.ts`
+
+### File placement
+
+| What | Where |
+|------|-------|
+| Route files | `app/` |
+| shadcn primitives | `components/ui/` (CLI output only) |
+| Reusable assemblies | `components/shared/` |
+| App shell and layout | `components/layout/` |
+| In-dashboard agent UI | `components/agent/` |
+| Theme helpers | `components/theme/` |
+| Static config and nav | `config/` |
+| Reusable hooks | `hooks/` |
+| Utilities, env, formatting | `lib/` |
+| Job runners (CLI entrypoints) | `scripts/jobs/` |
+| DB scripts | `scripts/db/` |
+| Shared types | `types/` |
+| Project docs | `docs/` |
+
+See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for detailed folder-level rules.
+
+### Database and backend
+
+- This app uses a shared Turso database — this is intentional for the current phase
+- Only read from and write to the tables listed in `docs/ecomdash2/backend-boundary.md`
+- All EcomDash2-owned config keys must be namespaced `ecomdash2.*`
+- New migrations go in `lib/db/migrations/` using the next sequence number
+
+### In-dashboard agent
+
+The in-dashboard agent (`lib/agent/`) is a real app-owned analysis subsystem — not a thin wrapper. When working on it:
+
+- Read `docs/ecomdash2/agentic-brain-implementation.md` first
+- Tools live in `lib/agent/tools.ts` and wrap server-side loaders (not browser-side queries)
+- Runbook prompts live in `docs/ecomdash2/agent-runbooks.md`
+- Runbook runtime config (execution mode, tool bundle, scope) lives in `lib/agent/presets.ts`
+- Prefer deterministic `tools` mode over free-form LLM synthesis for data-answering runbooks
+- Encrypted API key storage uses `DATA_ENCRYPTION_KEY` — do not log or expose decrypted values
+
+### Component promotion rules
+
+Only promote a component from inline to `components/shared/` if:
+
+- Used in 2+ real pages
+- The composition is stable (not still changing)
+- Props are obvious and small
+- It does more than rename a shadcn primitive
+
+When in doubt, keep it inline.
+
+### Work order workflow
 
 For any substantial task:
 
-1. read the named spec docs
-2. inspect only the minimum legacy references needed, if they are available
-3. implement in EcomDash2-owned files
-4. verify against the spec and, when relevant, against known legacy behavior
-5. report any remaining shared-infrastructure or legacy-coupling risk explicitly
+1. Read the named spec docs
+2. Inspect only the minimum app files needed
+3. Implement in app-owned files
+4. Verify: `npm run lint && npm run typecheck`
+5. Call out any unresolved backend coupling or missing context explicitly
 
-## If context is missing
+### If context is missing
 
 - Prefer the page spec over inference
-- Prefer the backend boundary over convenience
-- Prefer the tracker and handoff docs over assumptions about an older repo layout
-- Prefer asking the PM for a tighter work order over widening scope casually
+- Prefer the backend boundary doc over convenience shortcuts
+- Ask for a tighter scope rather than widening the task

@@ -1,69 +1,103 @@
-# EcomDash2 App
+# EcomDash2
 
-EcomDash2 is a standalone Next.js reporting app for ecommerce performance, profit, pacing, and operating inputs.
+A self-hosted ecommerce reporting dashboard for DTC founders. Pulls live data from your Shopify store, Meta Ads, Google Ads, TikTok Ads, and Klaviyo into a private database. Served as a Next.js app on Vercel with hourly data syncs running automatically via GitHub Actions.
 
-Package identity:
+You own the code. You own the data. No third-party SaaS has access.
 
-- app name: `EcomDash2 App`
-- package name: `ecomdash2-app`
+---
 
-Current standalone posture:
+## For founders
 
-- the app runtime is self-contained
-- the job runners and connectors are app-owned
-- CI and scheduler workflows are app-owned
-- the app still points at the shared Turso database and shared keep-boundary tables by design
+### What you get
 
-If this folder is moved into its own repository, this `README.md` should remain the root project guide.
+- **Overview** — revenue, orders, blended ROAS, MER, and profit at a glance with daily trend
+- **Paid media** — channel-level breakdown across Meta, Google, and TikTok with creative performance gallery
+- **Shopify** — profit and margin, product performance, inventory snapshots, and funnel conversion
+- **Email** — Klaviyo campaign and flow performance
+- **Settings** — connect your data sources, manage budgets, costs, and revenue targets
+- **In-dashboard AI agent** — chat with your data, run pre-built analysis runbooks (daily trading pulse, paid media diagnostics, inventory risk, board summaries), powered by your own OpenAI or Anthropic API key
 
-## What is already standalone
+### Setting up
 
-- EcomDash2 resolves runtime dependencies from its own package install
-- runtime code does not import sibling app code
-- the Settings full metrics catalog lives under `lib/metrics/definitions`
-- keep-boundary migrations live under `lib/db/migrations`
-- jobs, connectors, workflows, and CI are owned from this app
+Open this repo in Cursor or Claude Code and follow [SETUP.md](SETUP.md).
 
-Still intentionally shared for now:
+Your AI assistant can guide you through each step — you do not need prior development experience.
 
-- the Turso database
-- shared raw, report, contract, and status tables
-- shared reporting and business-input tables
-- broader connector validation on the shared runtime
+> **Automated agentic setup is on the roadmap.** The goal is for an agent to run the entire setup with minimal input in a single session. That is not yet built. For now, SETUP.md walks you through each service step by step with your AI assistant alongside you.
 
-Optional later phase:
+---
 
-- dedicated database provisioning and cutover
+## For developers and agents
 
-See [runtime-setup.md](docs/ecomdash2/runtime-setup.md), [backend-boundary.md](docs/ecomdash2/backend-boundary.md), [job-runtime-layout.md](docs/ecomdash2/job-runtime-layout.md), and [post-extraction-checklist.md](docs/ecomdash2/post-extraction-checklist.md).
+### Stack
 
-## Running the app
+| Layer | Technology |
+|-------|------------|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| UI | shadcn/ui + Tailwind CSS 4 |
+| Charts | Recharts |
+| Database | Turso (libSQL) |
+| Hosting | Vercel |
+| CI/CD | GitHub Actions |
+| Job runtime | tsx |
 
-If this folder still lives inside the parent `EcomDash` repo, run commands from `EcomDash2/TRS_Starter_Core`.
+### Structure
 
-If this folder has already been extracted into its own repo, run commands from the repo root.
+```
+app/                  # Next.js App Router routes and API handlers
+components/
+  ui/                 # shadcn-generated primitives (CLI only — do not edit manually)
+  shared/             # Reusable assemblies (KPI cards, section headers, tables)
+  layout/             # App shell, sidebar, header
+  agent/              # In-dashboard AI agent UI
+config/               # Site, nav, and preview metadata
+docs/
+  ecomdash2/          # Design philosophy, backend boundary, page specs, UI guardrails
+  UI_BUILDING.md      # UI rules for agents building dashboard pages
+  PROJECT_STRUCTURE.md
+lib/
+  connectors/         # Shopify, Meta, Google, TikTok, Klaviyo API clients
+  jobs/               # Job runners (hourly, backfill, reconcile, contracts)
+  db/                 # Turso client, migrations, typed queries
+  agent/              # In-dashboard agent runtime (orchestrator, tools, presets)
+  metrics/            # 60+ metric definitions and registry
+  env.ts              # Environment variable parsing
+scripts/
+  jobs/               # CLI entrypoints for job runners
+  db/                 # Migration and seeding scripts
+types/                # Shared TypeScript types
+.github/workflows/    # CI and scheduled job workflows
+```
 
-1. Install dependencies:
+See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for folder-level placement rules.
+
+### Running locally
 
 ```bash
 npm install
-```
-
-2. Create `.env.local` from `.env.example`.
-
-3. Set at least these variables for real data:
-
-- `ECOMDASH2_TURSO_URL`
-- `ECOMDASH2_TURSO_AUTH_TOKEN`
-- `ECOMDASH2_DEFAULT_WORKSPACE_ID`
-
-4. Start the app:
-
-```bash
+cp .env.example .env.local   # fill in your values
 npm run dev
 ```
 
-5. Verify before handoff:
+Minimum vars required to load real data:
+
+```
+ECOMDASH2_TURSO_URL
+ECOMDASH2_TURSO_AUTH_TOKEN
+ECOMDASH2_DEFAULT_WORKSPACE_ID
+```
+
+### Job runners
+
+```bash
+npm run jobs:hourly
+npm run jobs:backfill -- --from=2025-01-01 --to=2025-12-31 --resume
+npm run jobs:reconcile
+npm run jobs:contracts:refresh
+```
+
+### Verify before deploying
 
 ```bash
 npm run lint
@@ -71,89 +105,28 @@ npm run typecheck
 npm run build
 ```
 
-## Standalone job runners
+### GitHub Actions workflows
 
-Run these from the app root:
+| Workflow | Trigger |
+|----------|---------|
+| `ecomdash2-ci.yml` | Push to main |
+| `ecomdash2-hourly-sync.yml` | Hourly schedule |
+| `ecomdash2-daily-reconcile.yml` | Daily schedule |
+| `ecomdash2-backfill.yml` | Manual dispatch |
+| `ecomdash2-contract-refresh.yml` | Scheduled + manual |
 
-```bash
-npm run jobs:hourly
-npm run jobs:backfill -- --from=2025-01-01 --to=2025-01-31 --source=shopify
-npm run jobs:reconcile
-npm run jobs:contracts:refresh -- --from=2025-01-01 --to=2025-01-31
-```
+Required secrets (GitHub repo Settings → Secrets and variables → Actions):
 
-These entrypoints are app-owned and execute TypeScript runner modules under `lib/jobs/**` through `tsx`.
+- `ECOMDASH2_TURSO_URL`
+- `ECOMDASH2_TURSO_AUTH_TOKEN`
+- `ECOMDASH2_DEFAULT_WORKSPACE_ID`
+- `DATA_ENCRYPTION_KEY`
+- Plus any connector credentials (see [SETUP.md](SETUP.md))
 
-Owned workflow inventory:
+### Docs
 
-- `ecomdash2-ci.yml` for lint, typecheck, and build
-- `ecomdash2-hourly-sync.yml`
-- `ecomdash2-daily-reconcile.yml`
-- `ecomdash2-backfill.yml`
-- `ecomdash2-contract-refresh.yml`
-
-If you extract the app into its own repo, copy those workflow files into the new repo's `.github/workflows/` folder and change `working-directory` from `EcomDash2/TRS_Starter_Core` to `.`. See [docs/ecomdash2/post-extraction-checklist.md](docs/ecomdash2/post-extraction-checklist.md) and [docs/ecomdash2/job-ops.md](docs/ecomdash2/job-ops.md).
-
-Recommended extraction target:
-
-- create a fresh Git repository for EcomDash2
-- create a fresh Vercel project for that new repository
-- keep the shared Turso database for now
-
-## Environment contract
-
-Preferred env names are the `ECOMDASH2_*` variables listed in `.env.example`.
-
-Compatibility aliases are still accepted for shared local setups:
-
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
-- `WORKSPACE_ID_DEFAULT`
-- `NEXT_PUBLIC_CURRENCY`
-
-`ECOMDASH2_BACKEND_SOURCE` is currently locked to `turso`.
-
-Current recommended data posture:
-
-- keep using the shared Turso database after extraction
-- do not create a dedicated DB unless you choose to start the optional data-isolation phase later
-
-## Main routes
-
-- `/dashboard`
-- `/dashboard/paid-media`
-- `/dashboard/shopify/profit`
-- `/dashboard/shopify/products`
-- `/dashboard/shopify/inventory`
-- `/dashboard/shopify/funnel`
-- `/dashboard/email`
-- `/dashboard/settings`
-- `/preview/dashboard-patterns`
-
-## Docs
-
-- [docs/ecomdash2/README.md](docs/ecomdash2/README.md)
-- [docs/ecomdash2/rebuild-plan.md](docs/ecomdash2/rebuild-plan.md)
-- [docs/ecomdash2/backend-boundary.md](docs/ecomdash2/backend-boundary.md)
-- [docs/ecomdash2/schema-ownership.md](docs/ecomdash2/schema-ownership.md)
-- [docs/ecomdash2/dedicated-db-bootstrap.md](docs/ecomdash2/dedicated-db-bootstrap.md)
-- [docs/ecomdash2/post-extraction-checklist.md](docs/ecomdash2/post-extraction-checklist.md)
-- [docs/ecomdash2/runtime-setup.md](docs/ecomdash2/runtime-setup.md)
-- [docs/ecomdash2/job-runtime-layout.md](docs/ecomdash2/job-runtime-layout.md)
-- [docs/ecomdash2/job-ops.md](docs/ecomdash2/job-ops.md)
-- [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md)
-
-## What is left
-
-- immediate next step:
-  - extract the app into its own repo if you want repo separation now
-- after extraction:
-  - keep the shared Turso database
-  - use a fresh Git repo and a fresh Vercel project for EcomDash2
-  - move the EcomDash2 workflow files
-  - update workflow `working-directory`
-  - run lint, typecheck, build, and safe smoke jobs
-- optional later work:
-  - dedicated database provisioning, data copy, validation, and cutover
-- still recommended:
-  - broader live connector validation for some sources and workspaces
+- [SETUP.md](SETUP.md) — founder onboarding and connector setup guide
+- [AGENTS.md](AGENTS.md) — rules for agents setting up or building the app
+- [docs/ecomdash2/](docs/ecomdash2/) — design philosophy, backend boundary, page specs, UI guardrails
+- [docs/UI_BUILDING.md](docs/UI_BUILDING.md) — UI building rules for agents
+- [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) — folder conventions
