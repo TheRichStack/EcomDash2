@@ -22,6 +22,15 @@ type OpenAiChatResponse = {
   }
 }
 
+type OpenAiErrorResponse = {
+  error?: {
+    code?: string
+    message?: string
+    param?: string
+    type?: string
+  }
+}
+
 function resolveOpenAiReasoningEffort(input: AgentCompletionInput) {
   if (!input.jsonMode) {
     return undefined
@@ -38,6 +47,35 @@ function resolveOpenAiReasoningEffort(input: AgentCompletionInput) {
   }
 
   return undefined
+}
+
+function supportsCustomTemperature(modelId: string) {
+  const model = String(modelId ?? "").toLowerCase()
+
+  if (model.startsWith("gpt-5")) {
+    return false
+  }
+
+  return true
+}
+
+function isUnsupportedTemperatureError(responseText: string) {
+  try {
+    const parsed = JSON.parse(responseText) as OpenAiErrorResponse
+    const param = String(parsed.error?.param ?? "").toLowerCase()
+    const code = String(parsed.error?.code ?? "").toLowerCase()
+    const message = String(parsed.error?.message ?? "").toLowerCase()
+
+    return (
+      param === "temperature" &&
+      (code === "unsupported_value" || message.includes("does not support"))
+    )
+  } catch {
+    return (
+      responseText.toLowerCase().includes("temperature") &&
+      responseText.toLowerCase().includes("unsupported")
+    )
+  }
 }
 
 function normalizeOpenAiText(
@@ -149,30 +187,51 @@ export async function listOpenAiModels(apiKey: string): Promise<AgentModelOption
 export async function completeWithOpenAi(
   input: AgentCompletionInput
 ): Promise<AgentCompletionResult> {
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${input.apiKey}`,
-    },
-    body: JSON.stringify({
-      model: input.model,
-      max_completion_tokens: input.maxTokens ?? 1400,
-      messages: [
-        {
-          role: "developer",
-          content: input.systemPrompt,
-        },
-        {
-          role: "user",
-          content: input.userPrompt,
-        },
-      ],
-      reasoning_effort: resolveOpenAiReasoningEffort(input),
-      response_format: input.jsonMode ? { type: "json_object" } : undefined,
-      temperature: input.temperature ?? 0.2,
-    }),
-  })
+  const requestBodyBase = {
+    model: input.model,
+    max_completion_tokens: input.maxTokens ?? 1400,
+    messages: [
+      {
+        role: "developer",
+        content: input.systemPrompt,
+      },
+      {
+        role: "user",
+        content: input.userPrompt,
+      },
+    ],
+    reasoning_effort: resolveOpenAiReasoningEffort(input),
+    response_format: input.jsonMode ? { type: "json_object" } : undefined,
+  }
+  const defaultTemperature =
+    input.temperature !== undefined ? input.temperature : 0.2
+  const shouldSendTemperature = supportsCustomTemperature(input.model)
+  const attempt = async (sendTemperature: boolean) =>
+    fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${input.apiKey}`,
+      },
+      body: JSON.stringify({
+        ...requestBodyBase,
+        temperature: sendTemperature ? defaultTemperature : undefined,
+      }),
+    })
+
+  let response = await attempt(shouldSendTemperature)
+
+  if (!response.ok) {
+    const firstErrorText = await response.text()
+
+    if (shouldSendTemperature && isUnsupportedTemperatureError(firstErrorText)) {
+      response = await attempt(false)
+    } else {
+      throw new Error(
+        `OpenAI completion failed (${response.status}): ${firstErrorText || "Unknown error"}`
+      )
+    }
+  }
 
   if (!response.ok) {
     const detail = await response.text()
