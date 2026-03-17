@@ -499,6 +499,12 @@ export function listAgentPresets(
   return presets.filter((preset) => preset.releaseGate.status === "ready")
 }
 
+export function resetAgentPresetCachesForTests() {
+  cachedRunbooks = null
+  cachedRunbookReleaseGateFile = null
+  hasLoadedRunbookReleaseGateFile = false
+}
+
 export function getAgentPreset(presetId: AgentPresetId): AgentPresetDefinition {
   const runbook = loadRunbooks().find((entry) => entry.id === presetId)
   const latestGateByPresetId = getLatestGateByPresetId()

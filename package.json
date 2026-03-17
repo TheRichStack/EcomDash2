@@ -17,7 +17,8 @@
     "jobs:hourly": "tsx scripts/jobs/hourly.ts",
     "jobs:backfill": "tsx scripts/jobs/backfill.ts",
     "jobs:reconcile": "tsx scripts/jobs/reconcile.ts",
-    "jobs:contracts:refresh": "tsx scripts/jobs/contracts-refresh.ts"
+    "jobs:contracts:refresh": "tsx scripts/jobs/contracts-refresh.ts",
+    "agent:verify": "tsx --tsconfig tsconfig.scripts.json scripts/agent-guardrail-checks.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",

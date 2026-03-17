@@ -91,7 +91,7 @@ export function buildBrokerDashboardContext(input: {
   }
 }
 
-function sanitizeSingleTableQuery(sql: string, workspaceId: string) {
+export function sanitizeAgentSqlQuery(sql: string, workspaceId: string) {
   const normalized = String(sql ?? "").trim().replace(/;+\s*$/, "")
 
   if (!/^(select|with)\b/i.test(normalized)) {
@@ -181,7 +181,7 @@ export async function runAgentSqlBroker(input: {
   sql: string
   workspaceId: string
 }) {
-  const statement = sanitizeSingleTableQuery(input.sql, input.workspaceId)
+  const statement = sanitizeAgentSqlQuery(input.sql, input.workspaceId)
 
   return queryRows<Record<string, unknown>>(statement.sql, statement.args, {
     bypassCache: true,

@@ -30,6 +30,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Agent guardrails verify
+        run: npm run agent:verify
+
       - name: Build
         run: npm run build
         env:
