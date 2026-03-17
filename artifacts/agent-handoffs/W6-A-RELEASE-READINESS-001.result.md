@@ -20,13 +20,12 @@
 - `6d26225144147b979c3d02726d5ff92c093cdf66`
 
 8. `FINAL_COMMIT_SHA`
-- `6d26225144147b979c3d02726d5ff92c093cdf66`
+- `4f00a5b15950eeb13374a6d654c45196ef00521d`
 
 9. `git show --name-only --oneline -n 1` output
 ```text
-6d26225 test(agent): add deterministic confirmation-resume and op-mismatch guardrail checks
-lib/agent/orchestrator.ts
-scripts/agent-guardrail-checks.ts
+4f00a5b docs(agent): publish release-readiness sign-off for hardening program
+artifacts/agent-handoffs/W6-A-RELEASE-READINESS-001.result.md
 ```
 
 10. Files changed
