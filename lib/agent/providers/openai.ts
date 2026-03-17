@@ -13,7 +13,18 @@ type OpenAiModelListResponse = {
 type OpenAiChatResponse = {
   choices?: Array<{
     message?: {
-      content?: string | Array<{ text?: string; type?: string }>
+      content?:
+        | string
+        | Array<
+            | string
+            | {
+                text?: string | { value?: string }
+                value?: string
+                content?: string
+                type?: string
+              }
+          >
+      refusal?: string
     }
   }>
   usage?: {
@@ -79,7 +90,18 @@ function isUnsupportedTemperatureError(responseText: string) {
 }
 
 function normalizeOpenAiText(
-  content: string | Array<{ text?: string; type?: string }> | undefined
+  content:
+    | string
+    | Array<
+        | string
+        | {
+            text?: string | { value?: string }
+            value?: string
+            content?: string
+            type?: string
+          }
+      >
+    | undefined
 ) {
   if (typeof content === "string") {
     return content
@@ -90,7 +112,37 @@ function normalizeOpenAiText(
   }
 
   return content
-    .map((entry) => (entry?.type === "text" ? String(entry.text ?? "") : ""))
+    .map((entry) => {
+      if (typeof entry === "string") {
+        return entry
+      }
+
+      if (!entry || typeof entry !== "object") {
+        return ""
+      }
+
+      if (typeof entry.text === "string") {
+        return entry.text
+      }
+
+      if (
+        entry.text &&
+        typeof entry.text === "object" &&
+        typeof entry.text.value === "string"
+      ) {
+        return entry.text.value
+      }
+
+      if (typeof entry.value === "string") {
+        return entry.value
+      }
+
+      if (typeof entry.content === "string") {
+        return entry.content
+      }
+
+      return ""
+    })
     .join("\n")
     .trim()
 }
@@ -242,9 +294,12 @@ export async function completeWithOpenAi(
 
   const payload = (await response.json()) as OpenAiChatResponse
   const choice = payload.choices?.[0]
+  const message = choice?.message
+  const normalizedText = normalizeOpenAiText(message?.content).trim()
+  const fallbackRefusal = String(message?.refusal ?? "").trim()
 
   return {
-    text: normalizeOpenAiText(choice?.message?.content).trim(),
+    text: normalizedText || fallbackRefusal,
     usage: {
       inputTokens: payload.usage?.prompt_tokens,
       outputTokens: payload.usage?.completion_tokens,
