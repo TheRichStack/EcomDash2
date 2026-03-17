@@ -8,6 +8,10 @@ import {
   AGENT_MAX_MESSAGE_CHARS,
   AGENT_MAX_PRESET_MESSAGE_CHARS,
   AGENT_MAX_PLAN_TOKENS,
+  AGENT_PROMPT_HISTORY_ASSISTANT_CHARS,
+  AGENT_PROMPT_HISTORY_SUMMARY_CHARS,
+  AGENT_PROMPT_HISTORY_USER_CHARS,
+  AGENT_PROMPT_TOOL_SUMMARY_CHARS,
 } from "@/lib/agent/constants"
 import { createAgentBrokerToken } from "@/lib/agent/broker"
 import { buildAgentCharts } from "@/lib/agent/charts"
@@ -47,6 +51,7 @@ import type {
   AgentPresetId,
   AgentRunStatus,
   AgentToolName,
+  AgentToolResult,
   AgentProviderUsage,
   AgentRunResult,
   AgentUsageSegment,
@@ -90,6 +95,13 @@ type DirectTurnPlan = {
 type DateClarificationOption = {
   label: string
   message: string
+}
+
+type PromptToolEvidence = {
+  evidence: Record<string, unknown> | null
+  label: string
+  name: string
+  summary: string
 }
 
 type ParsedContextOverride = {
@@ -987,21 +999,42 @@ function resolveTurnPlan(
 function serializeConversationHistory(input: {
   messages: Awaited<ReturnType<typeof listAgentMessages>>
   summaryText?: string | null
-}
-) {
-  const recentTurns = input.messages
-    .slice(-6)
-    .map((message) => `${message.role.toUpperCase()}: ${message.content}`)
-    .join("\n")
+}) {
+  const lastUserTurn = [...input.messages]
+    .reverse()
+    .find((message) => message.role === "user")
+  const lastAssistantTurn = [...input.messages]
+    .reverse()
+    .find((message) => message.role === "assistant")
+  const summary = String(input.summaryText ?? "").trim()
 
   return [
-    input.summaryText
-      ? `Conversation summary:\n${compactText(input.summaryText, 1000)}`
-      : "",
-    `Recent turns:\n${recentTurns || "(none)"}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n")
+    `Conversation summary:\n${summary ? compactText(summary, AGENT_PROMPT_HISTORY_SUMMARY_CHARS) : "(none)"}`,
+    `Last user turn:\n${
+      lastUserTurn
+        ? compactText(lastUserTurn.content, AGENT_PROMPT_HISTORY_USER_CHARS)
+        : "(none)"
+    }`,
+    `Last assistant turn:\n${
+      lastAssistantTurn
+        ? compactText(
+            lastAssistantTurn.content,
+            AGENT_PROMPT_HISTORY_ASSISTANT_CHARS
+          )
+        : "(none)"
+    }`,
+  ].join("\n\n")
+}
+
+function buildPromptToolEvidencePayload(
+  toolResults: AgentToolResult[]
+): PromptToolEvidence[] {
+  return toolResults.map((tool) => ({
+    evidence: tool.evidence ?? null,
+    label: tool.label,
+    name: tool.name,
+    summary: compactText(tool.summary, AGENT_PROMPT_TOOL_SUMMARY_CHARS),
+  }))
 }
 
 function buildRollingConversationSummary(input: {
@@ -1070,7 +1103,7 @@ async function generateWorkerPlan(input: {
   provider: "openai" | "anthropic"
   question: string
   context: DashboardRequestContext
-  toolResults: Awaited<ReturnType<typeof runAgentTools>>
+  toolEvidence: PromptToolEvidence[]
 }) {
   const workerPrompt = [
     "Return JSON only.",
@@ -1087,7 +1120,7 @@ async function generateWorkerPlan(input: {
     "Use approved datasets first and only fall back to SQL when needed.",
     `Question: ${input.question}`,
     `Date context: ${input.context.from}..${input.context.to}`,
-    `Existing tool results: ${JSON.stringify(input.toolResults)}`,
+    `Existing tool evidence: ${JSON.stringify(input.toolEvidence)}`,
     'Output schema: {"scriptBody":"...","requestedOps":["..."],"why":"..."}',
   ].join("\n")
 
@@ -1114,7 +1147,7 @@ async function generateWorkerPlan(input: {
 function buildAnswerPrompt(input: {
   question: string
   history: string
-  toolResults: Awaited<ReturnType<typeof runAgentTools>>
+  toolEvidence: PromptToolEvidence[]
   executionMode: AgentExecutionMode
   workerResult?: Record<string, unknown> | null
   warnings: string[]
@@ -1129,7 +1162,7 @@ function buildAnswerPrompt(input: {
     "If an op still needs confirmation, do not pretend it already ran.",
     `Conversation history:\n${input.history || "(none)"}`,
     `Current question: ${input.question}`,
-    `Tool results JSON: ${JSON.stringify(input.toolResults)}`,
+    `Tool evidence JSON: ${JSON.stringify(input.toolEvidence)}`,
     input.workerResult
       ? `Worker result JSON: ${JSON.stringify(input.workerResult)}`
       : "Worker result JSON: null",
@@ -3224,12 +3257,16 @@ function buildDirectAnswerPrompt(input: {
 
 function buildDateClarificationPrompt(input: {
   question: string
-  history: string
+  options: DateClarificationOption[]
 }) {
+  const optionLabels = input.options.map((option) => option.label)
+
   return [
-    `Conversation history:\n${input.history || "(none)"}`,
-    `Original question: ${input.question}`,
-  ].join("\n\n")
+    `To answer this well, I need the date range for: ${input.question}`,
+    optionLabels.length > 0
+      ? `Choose one of these options or type your own date range: ${optionLabels.join(", ")}.`
+      : "Please share the date range to use (for example: 2026-02-01 to 2026-02-29).",
+  ].join("\n")
 }
 
 export async function runAgentTurn(input: {
@@ -3421,6 +3458,7 @@ export async function runAgentTurn(input: {
     turnPlan.kind === "direct" || requiresDateClarification
       ? []
       : buildAgentCharts(toolResults)
+  const toolEvidence = buildPromptToolEvidencePayload(toolResults)
   let workerResult: Record<string, unknown> | null = null
   let requestedOps: string[] = []
   let usageSummary: AgentUsageSummary | null = null
@@ -3476,7 +3514,7 @@ export async function runAgentTurn(input: {
                 model,
                 provider: resolved.provider,
                 question: executionQuestion,
-                toolResults,
+                toolEvidence,
               })
         const scriptBody = String(plan.scriptBody ?? "").trim()
 
@@ -3698,6 +3736,11 @@ export async function runAgentTurn(input: {
         toolResults,
         warningNote: warnings.length > 0 ? warnings.join(" ") : null,
       })
+    } else if (!blockedReason && requiresDateClarification) {
+      answerText = buildDateClarificationPrompt({
+        options: scopeResolution.clarifyingOptions ?? [],
+        question: scopeResolution.clarificationQuestion ?? analysisQuestion,
+      })
     } else if (!blockedReason) {
       const completionResult = await completeWithProvider({
         apiKey: resolved.apiKey,
@@ -3716,15 +3759,7 @@ export async function runAgentTurn(input: {
               : "analysis",
         }),
         userPrompt:
-          requiresDateClarification
-            ? buildDateClarificationPrompt({
-                history: serializeConversationHistory({
-                  messages: history,
-                  summaryText: conversation.summaryText,
-                }),
-                question: scopeResolution.clarificationQuestion ?? analysisQuestion,
-              })
-            : executionMode === "direct"
+          executionMode === "direct"
             ? buildDirectAnswerPrompt({
                 context: scopeResolution.context,
                 history: serializeConversationHistory({
@@ -3741,7 +3776,7 @@ export async function runAgentTurn(input: {
                 }),
                 question: executionQuestion,
                 requestedOps,
-                toolResults,
+                toolEvidence,
                 warnings,
                 workerResult,
               }),
