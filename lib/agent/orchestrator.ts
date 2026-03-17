@@ -124,6 +124,31 @@ type ScopeResolution = {
   clarifyingOptions?: DateClarificationOption[]
 }
 
+type AnswerAuditFreshnessStatus = "fresh" | "stale" | "unknown"
+
+type AnswerAudit = {
+  scope: {
+    source: ScopeResolution["source"]
+    confidence: ScopeResolution["confidence"]
+    from: string
+    to: string
+  }
+  freshness: {
+    status: AnswerAuditFreshnessStatus
+    sourceTool: AgentToolName | null
+    note: string
+  }
+  evidence: {
+    toolNames: AgentToolName[]
+    keyEvidenceIds: string[]
+  }
+  terminology: {
+    paidMedia: "proxy" | "unknown"
+    conversion: "direct" | "proxy" | "estimated" | "unknown"
+    notes: string[]
+  }
+}
+
 const GREETING_TERMS = new Set([
   "ello",
   "good",
@@ -196,6 +221,21 @@ const DATE_SCOPE_ONLY_TERMS = new Set([
   "weeks",
   "yesterday",
 ])
+
+const AGENT_TOOL_NAME_SET = new Set<AgentToolName>([
+  "overview_summary",
+  "traffic_conversion",
+  "paid_media_summary",
+  "inventory_risk",
+  "product_performance",
+  "email_performance",
+  "data_freshness",
+  "anomaly_scan",
+])
+
+function isAgentToolName(value: string): value is AgentToolName {
+  return AGENT_TOOL_NAME_SET.has(value as AgentToolName)
+}
 
 function shouldUseWorker(question: string, toolNames: string[]) {
   const normalized = question.toLowerCase()
@@ -1178,6 +1218,291 @@ function getToolResultByName(
   name: AgentToolName
 ) {
   return toolResults.find((tool) => tool.name === name) ?? null
+}
+
+function pushUniqueWarning(warnings: string[], warning: string) {
+  const normalized = String(warning ?? "").trim()
+
+  if (!normalized) {
+    return
+  }
+
+  if (!warnings.includes(normalized)) {
+    warnings.push(normalized)
+  }
+}
+
+function parseNumericSignal(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const normalized = value.trim().toLowerCase()
+
+  if (!normalized) {
+    return null
+  }
+
+  const parsed = Number(normalized.replace(/[^0-9.+-]/g, ""))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildAnswerAuditFreshness(
+  toolResults: Awaited<ReturnType<typeof runAgentTools>>
+): AnswerAudit["freshness"] {
+  const freshnessTool = getToolResultByName(toolResults, "data_freshness")
+
+  if (!freshnessTool) {
+    return {
+      note: "Data freshness tool was not executed for this turn.",
+      sourceTool: null,
+      status: "unknown",
+    }
+  }
+
+  const freshnessData = asRecord(freshnessTool.data) ?? {}
+  const recentJobs = asRecordArray(freshnessData.recentJobs)
+  const syncState = asRecordArray(freshnessData.syncState)
+  const failedJobs = recentJobs.filter((job) => {
+    const status = String(job.status ?? "").trim().toLowerCase()
+    return status === "failed" || status === "error" || status === "errored"
+  })
+  const staleStateRows = syncState.filter((row) => {
+    const stateKey = String(row.stateKey ?? "").trim().toLowerCase()
+    const stateValue = String(row.stateValue ?? "").trim().toLowerCase()
+
+    if (!stateKey) {
+      return false
+    }
+
+    if (
+      stateValue === "stale" ||
+      stateValue === "failed" ||
+      stateValue === "error" ||
+      stateValue === "true"
+    ) {
+      return true
+    }
+
+    if (
+      stateKey.includes("stale") ||
+      stateKey.includes("lag") ||
+      stateKey.includes("delay") ||
+      stateKey.includes("age")
+    ) {
+      const numericSignal = parseNumericSignal(stateValue)
+      return numericSignal !== null && numericSignal >= 48
+    }
+
+    return false
+  })
+
+  const cursorHours = syncState
+    .map((row) => hoursSinceIso(readStringValue(row, ["updatedAt"])))
+    .filter((hours): hours is number => hours !== null && Number.isFinite(hours))
+  const maxCursorHours =
+    cursorHours.length > 0 ? Math.max(...cursorHours) : null
+  const hasStaleCursor = maxCursorHours !== null && maxCursorHours >= 48
+
+  if (failedJobs.length > 0 || staleStateRows.length > 0 || hasStaleCursor) {
+    const reasons: string[] = []
+
+    if (failedJobs.length > 0) {
+      reasons.push(`${failedJobs.length} recent job failure(s)`)
+    }
+
+    if (staleStateRows.length > 0) {
+      reasons.push(`${staleStateRows.length} stale/error sync-state signal(s)`)
+    }
+
+    if (hasStaleCursor && maxCursorHours !== null) {
+      reasons.push(`latest freshness signal is ~${formatNumber(maxCursorHours, 1)}h old`)
+    }
+
+    return {
+      note: reasons.join("; "),
+      sourceTool: "data_freshness",
+      status: "stale",
+    }
+  }
+
+  if (recentJobs.length > 0 || syncState.length > 0) {
+    return {
+      note: "No failed jobs or stale sync-state signals were found in current freshness evidence.",
+      sourceTool: "data_freshness",
+      status: "fresh",
+    }
+  }
+
+  return {
+    note: "Freshness tool ran, but no sync-state or job evidence was available.",
+    sourceTool: "data_freshness",
+    status: "unknown",
+  }
+}
+
+function buildAnswerAuditTerminology(
+  toolResults: Awaited<ReturnType<typeof runAgentTools>>
+): AnswerAudit["terminology"] {
+  const notes: string[] = []
+  let paidMedia: AnswerAudit["terminology"]["paidMedia"] = "unknown"
+  let conversion: AnswerAudit["terminology"]["conversion"] = "unknown"
+
+  const paidTool = getToolResultByName(toolResults, "paid_media_summary")
+  const paidData = asRecord(paidTool?.data) ?? {}
+  const profitProxyModel = asRecord(paidData.profitProxyModel)
+
+  if (profitProxyModel) {
+    paidMedia = "proxy"
+    const confidence = String(profitProxyModel.confidence ?? "unknown")
+      .trim()
+      .toLowerCase()
+    notes.push(
+      `Paid media profitability is proxy-derived via profitProxyModel (${confidence || "unknown"} confidence).`
+    )
+  }
+
+  const funnelTool = getToolResultByName(toolResults, "traffic_conversion")
+  const funnelCurrentRange = asRecord(asRecord(funnelTool?.data)?.currentRange) ?? {}
+  const productBreakdown = asRecord(funnelCurrentRange.productBreakdown) ?? {}
+  const stageCountSource = String(funnelCurrentRange.stageCountSource ?? "")
+    .trim()
+    .toLowerCase()
+  const sourceMode = String(productBreakdown.sourceMode ?? "").trim().toLowerCase()
+
+  if (stageCountSource === "shopify_totals" && sourceMode !== "fallback") {
+    conversion = "direct"
+  } else if (stageCountSource === "mixed" || sourceMode === "fallback") {
+    conversion = "proxy"
+    notes.push(
+      `Conversion language is proxy: stageCountSource=${stageCountSource || "unknown"}, productBreakdown.sourceMode=${sourceMode || "unknown"}.`
+    )
+  } else if (
+    stageCountSource === "shopify_daily" ||
+    stageCountSource === "unavailable"
+  ) {
+    conversion = "estimated"
+    notes.push(
+      `Conversion language is estimated: stageCountSource=${stageCountSource}.`
+    )
+  } else if (stageCountSource) {
+    conversion = "estimated"
+    notes.push(
+      `Conversion language is estimated: stageCountSource=${stageCountSource}.`
+    )
+  }
+
+  return {
+    conversion,
+    notes,
+    paidMedia,
+  }
+}
+
+function buildAnswerAuditEvidence(
+  toolResults: Awaited<ReturnType<typeof runAgentTools>>
+): AnswerAudit["evidence"] {
+  const keyEvidenceIds: string[] = []
+
+  for (const tool of toolResults) {
+    const toolData = asRecord(tool.data) ?? {}
+
+    if (tool.name === "data_freshness") {
+      const recentJobs = asRecordArray(toolData.recentJobs)
+      const syncState = asRecordArray(toolData.syncState)
+      const recentJobIds = recentJobs
+        .slice(0, 3)
+        .map((row) => String(row.runId ?? "").trim())
+        .filter(Boolean)
+      const syncIds = syncState
+        .slice(0, 3)
+        .map((row) => {
+          const sourceKey = String(row.sourceKey ?? "").trim().toLowerCase()
+          const stateKey = String(row.stateKey ?? "").trim().toLowerCase()
+          return sourceKey && stateKey
+            ? `${tool.name}:sync:${sourceKey}:${stateKey}`
+            : null
+        })
+        .filter((value): value is string => Boolean(value))
+
+      keyEvidenceIds.push(
+        ...recentJobIds.map((id) => `${tool.name}:job:${id}`),
+        ...syncIds
+      )
+      continue
+    }
+
+    if (tool.name === "traffic_conversion") {
+      const currentRange = asRecord(toolData.currentRange) ?? {}
+      const productBreakdown = asRecord(currentRange.productBreakdown) ?? {}
+      const stageCountSource = String(currentRange.stageCountSource ?? "")
+        .trim()
+        .toLowerCase()
+      const sourceMode = String(productBreakdown.sourceMode ?? "")
+        .trim()
+        .toLowerCase()
+
+      if (stageCountSource) {
+        keyEvidenceIds.push(`${tool.name}:stage_count_source:${stageCountSource}`)
+      }
+
+      if (sourceMode) {
+        keyEvidenceIds.push(`${tool.name}:product_breakdown_source_mode:${sourceMode}`)
+      }
+      continue
+    }
+
+    if (tool.name === "paid_media_summary") {
+      const profitProxyModel = asRecord(toolData.profitProxyModel)
+      const confidence = String(profitProxyModel?.confidence ?? "")
+        .trim()
+        .toLowerCase()
+
+      if (confidence) {
+        keyEvidenceIds.push(`${tool.name}:profit_proxy_confidence:${confidence}`)
+      }
+      continue
+    }
+
+    const range = asRecord(toolData.range) ?? asRecord(toolData.dateRange)
+
+    if (range) {
+      const from = String(range.from ?? "").trim()
+      const to = String(range.to ?? "").trim()
+
+      if (from && to) {
+        keyEvidenceIds.push(`${tool.name}:range:${from}:${to}`)
+      }
+    }
+  }
+
+  return {
+    keyEvidenceIds: Array.from(new Set(keyEvidenceIds)).slice(0, 20),
+    toolNames: Array.from(new Set(toolResults.map((tool) => tool.name))).filter(
+      isAgentToolName
+    ),
+  }
+}
+
+function buildAnswerAudit(input: {
+  scopeResolution: ScopeResolution
+  toolResults: Awaited<ReturnType<typeof runAgentTools>>
+}): AnswerAudit {
+  return {
+    evidence: buildAnswerAuditEvidence(input.toolResults),
+    freshness: buildAnswerAuditFreshness(input.toolResults),
+    scope: {
+      confidence: input.scopeResolution.confidence,
+      from: input.scopeResolution.context.from,
+      source: input.scopeResolution.source,
+      to: input.scopeResolution.context.to,
+    },
+    terminology: buildAnswerAuditTerminology(input.toolResults),
+  }
 }
 
 function buildDeterministicAnomalyReport(input: {
@@ -3469,6 +3794,10 @@ export async function runAgentTurn(input: {
       ? []
       : buildAgentCharts(toolResults)
   const toolEvidence = buildPromptToolEvidencePayload(toolResults)
+  const answerAudit = buildAnswerAudit({
+    scopeResolution,
+    toolResults,
+  })
   let workerResult: Record<string, unknown> | null = null
   let requestedOps: string[] = []
   let usageSummary: AgentUsageSummary | null = null
@@ -3489,6 +3818,29 @@ export async function runAgentTurn(input: {
 
     if (scopeResolution.warning) {
       warnings.push(scopeResolution.warning)
+    }
+
+    for (const note of answerAudit.terminology.notes) {
+      pushUniqueWarning(warnings, `Terminology guardrail: ${note}`)
+    }
+
+    if (answerAudit.terminology.paidMedia === "proxy") {
+      pushUniqueWarning(
+        warnings,
+        "Terminology guardrail: paid media profitability uses proxy-model evidence."
+      )
+    }
+
+    if (answerAudit.terminology.conversion === "proxy") {
+      pushUniqueWarning(
+        warnings,
+        "Terminology guardrail: conversion/funnel language is proxy due to mixed or fallback stage sourcing."
+      )
+    } else if (answerAudit.terminology.conversion === "estimated") {
+      pushUniqueWarning(
+        warnings,
+        "Terminology guardrail: conversion/funnel language is estimated rather than exact."
+      )
     }
 
     if (!input.presetId && workerEnabledByHeuristic && !nonRunbookWorkerEnabled) {
@@ -3888,6 +4240,7 @@ export async function runAgentTurn(input: {
           name: tool.name,
           summary: tool.summary,
         })),
+        answerAudit,
         warnings,
       },
       role: "assistant",
@@ -3944,6 +4297,7 @@ export async function runAgentTurn(input: {
         runStatus: "failed",
         usage: usageSummary,
         usedTools: toolResults.map((tool) => tool.name),
+        answerAudit,
         warnings: [...warnings, errorMessage],
       },
       role: "assistant",
