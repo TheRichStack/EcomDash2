@@ -114,6 +114,27 @@ type ModelRequirementDecision = {
   noModelWarning: string | null
 }
 
+type ConfirmationResumeSelection = {
+  executionQuestion: string
+  requestedOps: string[]
+  scriptBody: string | null
+  scopeContext: Pick<DashboardRequestContext, "compare" | "from" | "to" | "workspaceId">
+  scopeWarning: string | null
+  usedPendingQuestion: boolean
+  usedPendingRequestedOps: boolean
+  usedPendingScopeContext: boolean
+  usedPendingScript: boolean
+}
+
+type WorkerOpGuardrailEvaluation = {
+  blockedReason: string | null
+  hasDynamicDispatch: boolean
+  normalizedConfirmedOps: string[]
+  normalizedRequestedOps: string[]
+  parsedScriptOps: string[]
+  unconfirmedOps: string[]
+}
+
 type ParsedContextOverride = {
   context: DashboardRequestContext
   confidence: "high" | "medium"
@@ -343,6 +364,139 @@ function inspectScriptDispatchOps(scriptBody: string) {
   return {
     hasDynamicDispatch,
     requestedOps: normalizeOpValues(requestedOps),
+  }
+}
+
+export function resolveConfirmationResumeSelectionForTest(input: {
+  analysisQuestion: string
+  context: DashboardRequestContext
+  pendingWorkerPlan: PendingWorkerPlan | null
+}): ConfirmationResumeSelection {
+  const pendingWorkerPlan = input.pendingWorkerPlan
+  const scopeContext =
+    pendingWorkerPlan !== null
+      ? {
+          compare: pendingWorkerPlan.context.compare,
+          from: pendingWorkerPlan.context.from,
+          to: pendingWorkerPlan.context.to,
+          workspaceId: pendingWorkerPlan.context.workspaceId,
+        }
+      : {
+          compare: input.context.compare,
+          from: input.context.from,
+          to: input.context.to,
+          workspaceId: input.context.workspaceId,
+        }
+
+  return {
+    executionQuestion:
+      pendingWorkerPlan !== null
+        ? pendingWorkerPlan.question
+        : input.analysisQuestion,
+    requestedOps:
+      pendingWorkerPlan !== null ? pendingWorkerPlan.requestedOps : [],
+    scriptBody:
+      pendingWorkerPlan !== null ? pendingWorkerPlan.scriptBody : null,
+    scopeContext,
+    scopeWarning:
+      pendingWorkerPlan !== null
+        ? `Resuming confirmed worker plan from pending run ${pendingWorkerPlan.pendingRunId}.`
+        : null,
+    usedPendingQuestion: pendingWorkerPlan !== null,
+    usedPendingRequestedOps: pendingWorkerPlan !== null,
+    usedPendingScopeContext: pendingWorkerPlan !== null,
+    usedPendingScript: pendingWorkerPlan !== null,
+  }
+}
+
+export function evaluateWorkerOpGuardrailsForTest(input: {
+  confirmedOps: unknown
+  hasExplicitConfirmedOps: boolean
+  requestedOps: unknown
+  scriptBody: string
+}): WorkerOpGuardrailEvaluation {
+  const normalizedRequestedOps = normalizeAllowedOps(input.requestedOps)
+  const normalizedConfirmedOps = normalizeAllowedOps(input.confirmedOps)
+  const scriptBody = String(input.scriptBody ?? "").trim()
+
+  if (!scriptBody) {
+    return {
+      blockedReason: "Worker plan script was empty.",
+      hasDynamicDispatch: false,
+      normalizedConfirmedOps,
+      normalizedRequestedOps,
+      parsedScriptOps: [],
+      unconfirmedOps: [],
+    }
+  }
+
+  const scriptDispatch = inspectScriptDispatchOps(scriptBody)
+
+  if (scriptDispatch.hasDynamicDispatch) {
+    return {
+      blockedReason:
+        "Worker script used non-literal dispatchOp(...) arguments, which is not allowed.",
+      hasDynamicDispatch: true,
+      normalizedConfirmedOps,
+      normalizedRequestedOps,
+      parsedScriptOps: scriptDispatch.requestedOps,
+      unconfirmedOps: [],
+    }
+  }
+
+  const unsupportedScriptOps = scriptDispatch.requestedOps.filter(
+    (op) => !(AGENT_ALLOWED_OPS as readonly string[]).includes(op)
+  )
+
+  if (unsupportedScriptOps.length > 0) {
+    return {
+      blockedReason: `Worker script requested unsupported operations: ${unsupportedScriptOps.join(", ")}.`,
+      hasDynamicDispatch: false,
+      normalizedConfirmedOps,
+      normalizedRequestedOps,
+      parsedScriptOps: scriptDispatch.requestedOps,
+      unconfirmedOps: [],
+    }
+  }
+
+  if (!hasExactOpSet(scriptDispatch.requestedOps, normalizedRequestedOps)) {
+    return {
+      blockedReason:
+        "Worker script dispatchOp set does not match the saved requested op set.",
+      hasDynamicDispatch: false,
+      normalizedConfirmedOps,
+      normalizedRequestedOps,
+      parsedScriptOps: scriptDispatch.requestedOps,
+      unconfirmedOps: [],
+    }
+  }
+
+  if (
+    input.hasExplicitConfirmedOps &&
+    !hasExactOpSet(normalizedConfirmedOps, normalizedRequestedOps)
+  ) {
+    return {
+      blockedReason:
+        "Confirmed operations do not exactly match the pending plan requested ops.",
+      hasDynamicDispatch: false,
+      normalizedConfirmedOps,
+      normalizedRequestedOps,
+      parsedScriptOps: scriptDispatch.requestedOps,
+      unconfirmedOps: [],
+    }
+  }
+
+  const unconfirmedOps = normalizedRequestedOps.filter(
+    (op) => !normalizedConfirmedOps.includes(op)
+  )
+
+  return {
+    blockedReason: null,
+    hasDynamicDispatch: false,
+    normalizedConfirmedOps,
+    normalizedRequestedOps,
+    parsedScriptOps: scriptDispatch.requestedOps,
+    unconfirmedOps,
   }
 }
 

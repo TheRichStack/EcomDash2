@@ -14,6 +14,8 @@ import { executeAgentRunLocally } from "@/lib/agent/executor"
 import {
   buildDateClarificationPromptForTest,
   buildPromptToolEvidencePayloadForTest,
+  evaluateWorkerOpGuardrailsForTest,
+  resolveConfirmationResumeSelectionForTest,
   resolveModelRequirementForTurnForTest,
   resolvePendingWorkerPlanForTest,
   serializeConversationHistoryForTest,
@@ -335,6 +337,121 @@ function verifyPendingWorkerPlanParserFailClosed() {
   )
 }
 
+function verifyConfirmationResumeSelectionDeterminism() {
+  const workspaceId = "guardrail-check-workspace"
+  const pendingRunId = "guardrail-check-confirm-resume"
+  const parsed = resolvePendingWorkerPlanForTest({
+    payload: {
+      context: {
+        compare: "previous_year",
+        from: "2025-11-20",
+        to: "2025-12-05",
+        workspaceId,
+      },
+      plan: {
+        requestedOps: ["jobs:hourly", "jobs:reconcile"],
+        scriptBody:
+          "await broker.dispatchOp('jobs:hourly'); await broker.dispatchOp('jobs:reconcile'); return { ok: true }",
+        why: "deterministic resume test",
+      },
+      question: "Run the saved BFCM reconciliation workflow.",
+    },
+    pendingRunId,
+    workspaceId,
+  })
+  assert.notEqual(parsed.plan, null, "Expected valid pending worker plan to parse.")
+
+  const selection = resolveConfirmationResumeSelectionForTest({
+    analysisQuestion:
+      "Ignore saved plan and heuristically reroute this to a greeting-only direct response.",
+    context: {
+      compare: "none",
+      from: "2026-03-01",
+      session: {
+        defaultWorkspaceId: workspaceId,
+        email: null,
+        role: "admin",
+        source: "env-stub",
+        userId: "guardrail-check-user",
+        workspaceMemberships: [
+          {
+            id: workspaceId,
+            label: workspaceId,
+          },
+        ],
+      },
+      to: "2026-03-17",
+      workspaceId,
+    },
+    pendingWorkerPlan: parsed.plan,
+  })
+
+  assert.equal(
+    selection.executionQuestion,
+    parsed.plan?.question,
+    "Confirmation resume must use the pending plan question."
+  )
+  assert.equal(
+    selection.scriptBody,
+    parsed.plan?.scriptBody,
+    "Confirmation resume must use the pending plan script."
+  )
+  assert.deepEqual(
+    selection.requestedOps,
+    parsed.plan?.requestedOps,
+    "Confirmation resume must use pending plan requested ops."
+  )
+  assert.deepEqual(
+    selection.scopeContext,
+    parsed.plan?.context,
+    "Confirmation resume must use pending plan context."
+  )
+  assert.equal(selection.usedPendingQuestion, true)
+  assert.equal(selection.usedPendingScript, true)
+  assert.equal(selection.usedPendingRequestedOps, true)
+  assert.equal(selection.usedPendingScopeContext, true)
+  assert.match(
+    String(selection.scopeWarning ?? ""),
+    new RegExp(pendingRunId),
+    "Confirmation resume warning must reference the pending run id."
+  )
+
+  const malformed = resolvePendingWorkerPlanForTest({
+    payload: {
+      context: {
+        compare: "none",
+        from: "2026-01-01",
+        to: "2026-01-31",
+        workspaceId,
+      },
+      plan: {
+        requestedOps: ["jobs:hourly"],
+        scriptBody: "",
+      },
+      question: "Malformed pending plan should fail closed.",
+    },
+    pendingRunId: `${pendingRunId}-missing-script`,
+    workspaceId,
+  })
+  assert.equal(
+    malformed.plan,
+    null,
+    "Malformed pending plan must fail closed and not produce resume inputs."
+  )
+  assert.match(
+    String(malformed.blockedReason ?? ""),
+    /missing a saved script/i,
+    "Malformed pending plan must emit explicit blocked reason."
+  )
+
+  console.log(
+    `[confirmation-resume-determinism] sourceContext=plan sourceQuestion=plan sourceScript=plan sourceOps=plan scope=${selection.scopeContext.from}..${selection.scopeContext.to} compare=${selection.scopeContext.compare} warning="${String(selection.scopeWarning ?? "")}"`
+  )
+  console.log(
+    `[confirmation-resume-fail-closed] malformedPendingPlanBlocked=${String(Boolean(malformed.blockedReason))} reason="${String(malformed.blockedReason ?? "")}"`
+  )
+}
+
 function readSectionText(serialized: string, heading: string, nextHeading: string) {
   const startToken = `${heading}\n`
   const endToken = `\n\n${nextHeading}\n`
@@ -529,15 +646,79 @@ function verifyDeterministicNoKeyModelRequirementRouting() {
   )
 }
 
+function verifyWorkerOpSetMismatchGuardrails() {
+  const nonLiteralDispatch = evaluateWorkerOpGuardrailsForTest({
+    confirmedOps: ["jobs:hourly"],
+    hasExplicitConfirmedOps: true,
+    requestedOps: ["jobs:hourly"],
+    scriptBody: `
+const op = "jobs:hourly"
+await broker.dispatchOp(op)
+return { ok: true }
+`,
+  })
+  assert.match(
+    String(nonLiteralDispatch.blockedReason ?? ""),
+    /non-literal dispatchOp/i,
+    "Non-literal dispatchOp usage must be blocked."
+  )
+  assert.equal(
+    nonLiteralDispatch.hasDynamicDispatch,
+    true,
+    "Non-literal dispatchOp check should set hasDynamicDispatch=true."
+  )
+
+  const scriptRequestedMismatch = evaluateWorkerOpGuardrailsForTest({
+    confirmedOps: ["jobs:hourly"],
+    hasExplicitConfirmedOps: true,
+    requestedOps: ["jobs:hourly"],
+    scriptBody: `
+await broker.dispatchOp("jobs:hourly")
+await broker.dispatchOp("jobs:reconcile")
+return { ok: true }
+`,
+  })
+  assert.match(
+    String(scriptRequestedMismatch.blockedReason ?? ""),
+    /dispatchOp set does not match the saved requested op set/i,
+    "Script/requested op-set mismatch must be blocked."
+  )
+
+  const confirmedRequestedMismatch = evaluateWorkerOpGuardrailsForTest({
+    confirmedOps: ["jobs:hourly"],
+    hasExplicitConfirmedOps: true,
+    requestedOps: ["jobs:hourly", "jobs:reconcile"],
+    scriptBody: `
+await broker.dispatchOp("jobs:hourly")
+await broker.dispatchOp("jobs:reconcile")
+return { ok: true }
+`,
+  })
+  assert.match(
+    String(confirmedRequestedMismatch.blockedReason ?? ""),
+    /Confirmed operations do not exactly match the pending plan requested ops/i,
+    "Confirmed/requested op-set mismatch must be blocked."
+  )
+
+  console.log(
+    `[worker-non-literal-dispatch] blocked=${String(Boolean(nonLiteralDispatch.blockedReason))} reason="${String(nonLiteralDispatch.blockedReason ?? "")}"`
+  )
+  console.log(
+    `[worker-op-set-mismatch] scriptVsRequestedBlocked=${String(Boolean(scriptRequestedMismatch.blockedReason))} reason="${String(scriptRequestedMismatch.blockedReason ?? "")}" confirmedVsRequestedBlocked=${String(Boolean(confirmedRequestedMismatch.blockedReason))} confirmedReason="${String(confirmedRequestedMismatch.blockedReason ?? "")}"`
+  )
+}
+
 async function main() {
   await verifyOpDispatchAllowlist()
   verifySqlRowCapEnforcement()
   await verifyRunbookReleaseGateFailClosed()
   verifyPendingWorkerPlanParserFailClosed()
+  verifyConfirmationResumeSelectionDeterminism()
   verifyHistoryBounding()
   verifyEvidenceOnlyPromptShaping()
   verifyDateClarificationDeterminism()
   verifyDeterministicNoKeyModelRequirementRouting()
+  verifyWorkerOpSetMismatchGuardrails()
   console.log("agent-guardrail-checks: PASS")
 }
 
