@@ -156,6 +156,10 @@ export const env = {
       2
     ),
     allowInlineOps: readBooleanEnv(["ECOMDASH2_AGENT_ALLOW_INLINE_OPS"], false),
+    enforceRunbookReleaseGates: readBooleanEnv(
+      ["ECOMDASH2_AGENT_ENFORCE_RUNBOOK_RELEASE_GATES"],
+      false
+    ),
   },
   backend: {
     source: resolveBackendSource(),
