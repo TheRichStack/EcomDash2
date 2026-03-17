@@ -22,6 +22,7 @@ import {
   completeJsonWithProvider,
   completeWithProvider,
   resolveProviderModel,
+  resolveProviderRouterModel,
 } from "@/lib/agent/providers"
 import { resolveWorkspaceAgentCredential } from "@/lib/agent/settings"
 import {
@@ -3281,20 +3282,26 @@ export async function runAgentTurn(input: {
   const resolved = await resolveWorkspaceAgentCredential({
     workspaceId: input.context.workspaceId,
   })
-  const model = await resolveProviderModel({
+  const synthesisModel = await resolveProviderModel({
     apiKey: resolved.apiKey,
     provider: resolved.provider,
     selectedModel: resolved.model,
   })
+  const routerModelResolution = await resolveProviderRouterModel({
+    apiKey: resolved.apiKey,
+    provider: resolved.provider,
+    synthesisModel,
+  })
+  const routerModel = routerModelResolution.model
   const businessProfile = resolved.settings.businessProfile
   const existingConversation = input.conversationId
     ? await getAgentConversationById(input.conversationId)
     : null
   const conversation =
     existingConversation && existingConversation.workspaceId === input.context.workspaceId
-      ? existingConversation
-      : await createAgentConversation({
-          model,
+        ? existingConversation
+        : await createAgentConversation({
+          model: synthesisModel,
           provider: resolved.provider,
           title: input.titleSeed ?? input.message,
           workspaceId: input.context.workspaceId,
@@ -3445,7 +3452,10 @@ export async function runAgentTurn(input: {
   const run = await createAgentRun({
     conversationId: conversation.id,
     executionMode,
-    model,
+    model:
+      executionMode === "direct" && !requiresDateClarification
+        ? routerModel
+        : synthesisModel,
     provider: resolved.provider,
     requestedOps: [],
     usedTools: toolResults.map((tool) => tool.name),
@@ -3469,6 +3479,9 @@ export async function runAgentTurn(input: {
     await assertWorkspaceBudgetAvailable(input.context.workspaceId)
 
     warnings.push(...turnPlan.warnings)
+    if (routerModelResolution.warning) {
+      warnings.push(routerModelResolution.warning)
+    }
 
     if (presetContext?.note) {
       warnings.push(presetContext.note)
@@ -3511,7 +3524,7 @@ export async function runAgentTurn(input: {
                 apiKey: resolved.apiKey,
                 businessProfile,
                 context: scopeResolution.context,
-                model,
+                model: routerModel,
                 provider: resolved.provider,
                 question: executionQuestion,
                 toolEvidence,
@@ -3544,13 +3557,17 @@ export async function runAgentTurn(input: {
 
           const workerPlanUsage = buildUsageSegment({
             label: "Deep-analysis plan",
-            model,
+            model: routerModel,
             provider: resolved.provider,
             usage: plan.usage,
           })
 
           if (workerPlanUsage) {
-            usageSegments.push(workerPlanUsage)
+            usageSegments.push({
+              ...workerPlanUsage,
+              model: routerModel,
+              provider: resolved.provider,
+            })
           }
         }
 
@@ -3748,7 +3765,7 @@ export async function runAgentTurn(input: {
           executionMode === "direct"
             ? AGENT_MAX_DIRECT_COMPLETION_TOKENS
             : AGENT_MAX_COMPLETION_TOKENS,
-        model,
+        model: executionMode === "direct" ? routerModel : synthesisModel,
         provider: resolved.provider,
         systemPrompt: buildAgentSystemPrompt({
           businessProfile,
@@ -3783,13 +3800,17 @@ export async function runAgentTurn(input: {
       })
       const answerUsage = buildUsageSegment({
         label: executionMode === "direct" ? "Direct response" : "Final answer",
-        model,
+        model: executionMode === "direct" ? routerModel : synthesisModel,
         provider: resolved.provider,
         usage: completionResult?.usage,
       })
 
       if (answerUsage) {
-        usageSegments.push(answerUsage)
+        usageSegments.push({
+          ...answerUsage,
+          model: executionMode === "direct" ? routerModel : synthesisModel,
+          provider: resolved.provider,
+        })
       }
 
       answerText = completionResult?.text?.trim() ?? ""
@@ -3818,7 +3839,7 @@ export async function runAgentTurn(input: {
     }
 
     usageSummary = buildUsageSummary({
-      model,
+      model: executionMode === "direct" ? routerModel : synthesisModel,
       provider: resolved.provider,
       segments: usageSegments,
     })

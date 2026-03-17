@@ -49,7 +49,9 @@ export type AgentUsageSegment = {
   estimatedCostUsd?: number
   inputTokens: number
   label: string
+  model?: string
   outputTokens: number
+  provider?: AgentProvider
 }
 
 export type AgentUsageSummary = {

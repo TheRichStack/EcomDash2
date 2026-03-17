@@ -146,6 +146,111 @@ export async function resolveProviderModel(input: {
   return resolvedModel
 }
 
+const ROUTER_MODEL_PREFERENCES: Record<AgentProvider, readonly string[]> = {
+  openai: ["gpt-5-mini", "gpt-5", "gpt-5.4"],
+  anthropic: ["haiku", "sonnet", "claude-sonnet-4-5"],
+}
+
+function pickRouterModelFromAvailable(
+  models: AgentModelOption[],
+  provider: AgentProvider
+) {
+  for (const fragment of ROUTER_MODEL_PREFERENCES[provider]) {
+    const normalizedFragment = fragment.toLowerCase()
+    const exactMatch = models.find(
+      (model) => model.id.toLowerCase() === normalizedFragment
+    )
+
+    if (exactMatch) {
+      return exactMatch.id
+    }
+
+    const partialMatch = models.find((model) =>
+      model.id.toLowerCase().includes(normalizedFragment)
+    )
+
+    if (partialMatch) {
+      return partialMatch.id
+    }
+  }
+
+  return null
+}
+
+export async function resolveProviderRouterModel(input: {
+  apiKey: string
+  provider: AgentProvider
+  synthesisModel: string
+}): Promise<{ model: string; warning?: string }> {
+  const configured = env.agent.routerModels[input.provider].trim()
+
+  try {
+    const models = await listProviderModels(input.provider, input.apiKey)
+    if (models.length === 0) {
+      return {
+        model: input.synthesisModel,
+        warning: `Router model resolution failed because ${input.provider} returned no available models; using synthesis model "${input.synthesisModel}".`,
+      }
+    }
+
+    if (configured) {
+      const exactConfigured = models.find(
+        (model) => model.id.toLowerCase() === configured.toLowerCase()
+      )
+
+      if (exactConfigured) {
+        return { model: exactConfigured.id }
+      }
+
+      const includesConfigured = models.find((model) =>
+        model.id.toLowerCase().includes(configured.toLowerCase())
+      )
+
+      if (includesConfigured) {
+        return { model: includesConfigured.id }
+      }
+
+      const fallbackModel = pickRouterModelFromAvailable(models, input.provider)
+
+      if (!fallbackModel) {
+        return {
+          model: input.synthesisModel,
+          warning: `Configured router model "${configured}" is unavailable for ${input.provider}; no low-cost fallback was resolved, so using synthesis model "${input.synthesisModel}".`,
+        }
+      }
+
+      return {
+        model: fallbackModel,
+        warning: `Configured router model "${configured}" is unavailable for ${input.provider}; using "${fallbackModel}".`,
+      }
+    }
+
+    const preferredRouterModel = pickRouterModelFromAvailable(
+      models,
+      input.provider
+    )
+
+    if (!preferredRouterModel) {
+      return {
+        model: input.synthesisModel,
+        warning: `Router model resolution failed to find a low-cost ${input.provider} model; using synthesis model "${input.synthesisModel}".`,
+      }
+    }
+
+    return {
+      model: preferredRouterModel,
+    }
+  } catch (error) {
+    return {
+      model: input.synthesisModel,
+      warning:
+        error instanceof Error
+          ? `Router model resolution failed; using synthesis model "${input.synthesisModel}" (${error.message}).`
+          : `Router model resolution failed; using synthesis model "${input.synthesisModel}".`,
+    }
+  }
+}
+
 export async function completeWithProvider(input: {
   apiKey: string
   provider: AgentProvider
