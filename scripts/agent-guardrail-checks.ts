@@ -14,6 +14,7 @@ import { executeAgentRunLocally } from "@/lib/agent/executor"
 import {
   buildDateClarificationPromptForTest,
   buildPromptToolEvidencePayloadForTest,
+  resolveModelRequirementForTurnForTest,
   resolvePendingWorkerPlanForTest,
   serializeConversationHistoryForTest,
 } from "@/lib/agent/orchestrator"
@@ -459,6 +460,75 @@ function verifyDateClarificationDeterminism() {
   console.log(`[date-clarification-determinism] output="${promptA}"`)
 }
 
+function verifyDeterministicNoKeyModelRequirementRouting() {
+  const deterministicNoKey = resolveModelRequirementForTurnForTest({
+    executionMode: "tools",
+    hasCredential: false,
+    presetId: "last-month-board-summary",
+    requiresDateClarification: false,
+  })
+  const analysisNoKey = resolveModelRequirementForTurnForTest({
+    executionMode: "tools",
+    hasCredential: false,
+    requiresDateClarification: false,
+  })
+  const analysisWithCredential = resolveModelRequirementForTurnForTest({
+    executionMode: "tools",
+    hasCredential: true,
+    requiresDateClarification: false,
+  })
+
+  assert.equal(
+    deterministicNoKey.modelRequired,
+    false,
+    "Deterministic preset tools path must be marked model-not-required."
+  )
+  assert.equal(
+    typeof deterministicNoKey.noModelWarning,
+    "string",
+    "Deterministic no-key path must carry explicit no-model warning metadata."
+  )
+  assert.equal(
+    deterministicNoKey.blockedReason,
+    null,
+    "Deterministic preset path should run without provider credentials."
+  )
+
+  assert.equal(
+    analysisNoKey.modelRequired,
+    true,
+    "Non-deterministic tools path must remain model-required."
+  )
+  assert.match(
+    String(analysisNoKey.blockedReason ?? ""),
+    /requires a configured OpenAI or Anthropic API key/i,
+    "Non-deterministic no-key path must fail closed with explicit blocked reason."
+  )
+  assert.equal(
+    analysisNoKey.noModelWarning,
+    null,
+    "Non-deterministic no-key path should not emit deterministic no-model warning."
+  )
+
+  assert.equal(
+    analysisWithCredential.modelRequired,
+    true,
+    "Model-required path should stay model-required when credentials are present."
+  )
+  assert.equal(
+    analysisWithCredential.blockedReason,
+    null,
+    "Credentialed model-required path should remain unblocked."
+  )
+
+  console.log(
+    `[deterministic-no-key-routing] deterministicPreset=modelRequired:${String(deterministicNoKey.modelRequired)} blocked:${String(Boolean(deterministicNoKey.blockedReason))} noModelWarning:${String(Boolean(deterministicNoKey.noModelWarning))}`
+  )
+  console.log(
+    `[model-required-no-key-routing] freeformAnalysis=modelRequired:${String(analysisNoKey.modelRequired)} blockedReason="${String(analysisNoKey.blockedReason ?? "")}" credentialedBlocked:${String(Boolean(analysisWithCredential.blockedReason))}`
+  )
+}
+
 async function main() {
   await verifyOpDispatchAllowlist()
   verifySqlRowCapEnforcement()
@@ -467,6 +537,7 @@ async function main() {
   verifyHistoryBounding()
   verifyEvidenceOnlyPromptShaping()
   verifyDateClarificationDeterminism()
+  verifyDeterministicNoKeyModelRequirementRouting()
   console.log("agent-guardrail-checks: PASS")
 }
 

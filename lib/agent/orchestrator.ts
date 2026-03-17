@@ -24,7 +24,10 @@ import {
   resolveProviderModel,
   resolveProviderRouterModel,
 } from "@/lib/agent/providers"
-import { resolveWorkspaceAgentCredential } from "@/lib/agent/settings"
+import {
+  loadWorkspaceAgentSettings,
+  resolveWorkspaceAgentCredential,
+} from "@/lib/agent/settings"
 import {
   createAgentArtifact,
   createAgentConversation,
@@ -103,6 +106,12 @@ type PromptToolEvidence = {
   label: string
   name: string
   summary: string
+}
+
+type ModelRequirementDecision = {
+  blockedReason: string | null
+  modelRequired: boolean
+  noModelWarning: string | null
 }
 
 type ParsedContextOverride = {
@@ -221,6 +230,21 @@ const DATE_SCOPE_ONLY_TERMS = new Set([
   "weeks",
   "yesterday",
 ])
+
+const DETERMINISTIC_RENDERER_PRESET_IDS = new Set<AgentPresetId>([
+  "anomaly-and-issue-scan",
+  "daily-trading-pulse",
+  "inventory-risk-and-missed-revenue",
+  "last-7-days-commercial-review",
+  "last-month-board-summary",
+  "paid-media-diagnostics",
+  "product-and-merchandising-performance",
+])
+
+const DETERMINISTIC_NO_MODEL_WARNING =
+  "Deterministic no-model mode: completed this preset using app-owned tools and deterministic rendering because no provider credential is configured."
+const MODEL_CREDENTIALS_REQUIRED_BLOCK_REASON =
+  "This request requires a configured OpenAI or Anthropic API key in Agent Settings."
 
 const AGENT_TOOL_NAME_SET = new Set<AgentToolName>([
   "overview_summary",
@@ -1168,6 +1192,42 @@ function resolveToolNames(input: {
   }
 
   return getRelevantAgentTools(input.message)
+}
+
+function isDeterministicRendererPreset(
+  presetId?: AgentPresetId
+): presetId is AgentPresetId {
+  return Boolean(presetId && DETERMINISTIC_RENDERER_PRESET_IDS.has(presetId))
+}
+
+export function resolveModelRequirementForTurnForTest(input: {
+  executionMode: AgentExecutionMode
+  hasCredential: boolean
+  presetId?: AgentPresetId
+  requiresDateClarification: boolean
+}): ModelRequirementDecision {
+  const deterministicNoModelEligible =
+    input.executionMode === "tools" &&
+    isDeterministicRendererPreset(input.presetId)
+  const modelRequired =
+    !input.requiresDateClarification && !deterministicNoModelEligible
+
+  if (!input.hasCredential && modelRequired) {
+    return {
+      blockedReason: MODEL_CREDENTIALS_REQUIRED_BLOCK_REASON,
+      modelRequired: true,
+      noModelWarning: null,
+    }
+  }
+
+  return {
+    blockedReason: null,
+    modelRequired,
+    noModelWarning:
+      deterministicNoModelEligible && !input.hasCredential
+        ? DETERMINISTIC_NO_MODEL_WARNING
+        : null,
+  }
 }
 
 async function generateWorkerPlan(input: {
@@ -3644,34 +3704,57 @@ export async function runAgentTurn(input: {
   presetId?: AgentPresetId
   titleSeed?: string
 }): Promise<AgentRunResult> {
-  const resolved = await resolveWorkspaceAgentCredential({
-    workspaceId: input.context.workspaceId,
-  })
-  const synthesisModel = await resolveProviderModel({
-    apiKey: resolved.apiKey,
-    provider: resolved.provider,
-    selectedModel: resolved.model,
-  })
-  const routerModelResolution = await resolveProviderRouterModel({
-    apiKey: resolved.apiKey,
-    provider: resolved.provider,
-    synthesisModel,
-  })
-  const routerModel = routerModelResolution.model
-  const businessProfile = resolved.settings.businessProfile
-  const existingConversation = input.conversationId
+  const workspaceSettings = await loadWorkspaceAgentSettings(
+    input.context.workspaceId
+  )
+  const businessProfile = workspaceSettings.businessProfile
+  const configuredProvider = workspaceSettings.provider
+  const hasWorkspaceCredential =
+    configuredProvider !== null &&
+    Boolean(workspaceSettings.apiKeyByProvider[configuredProvider])
+  let providerForRun: "openai" | "anthropic" =
+    configuredProvider ?? "openai"
+  let synthesisModel = workspaceSettings.model || "auto"
+  let routerModel = synthesisModel
+  let routerModelResolutionWarning: string | null = null
+  let credentialResolution:
+    | Awaited<ReturnType<typeof resolveWorkspaceAgentCredential>>
+    | null = null
+  const resolveProviderModelsIfNeeded = async () => {
+    if (credentialResolution) {
+      return credentialResolution
+    }
+
+    credentialResolution = await resolveWorkspaceAgentCredential({
+      workspaceId: input.context.workspaceId,
+    })
+    providerForRun = credentialResolution.provider
+    synthesisModel = await resolveProviderModel({
+      apiKey: credentialResolution.apiKey,
+      provider: credentialResolution.provider,
+      selectedModel: credentialResolution.model,
+    })
+    const routerModelResolution = await resolveProviderRouterModel({
+      apiKey: credentialResolution.apiKey,
+      provider: credentialResolution.provider,
+      synthesisModel,
+    })
+    routerModel = routerModelResolution.model
+    routerModelResolutionWarning = routerModelResolution.warning ?? null
+
+    return credentialResolution
+  }
+  const existingConversationCandidate = input.conversationId
     ? await getAgentConversationById(input.conversationId)
     : null
-  const conversation =
-    existingConversation && existingConversation.workspaceId === input.context.workspaceId
-        ? existingConversation
-        : await createAgentConversation({
-          model: synthesisModel,
-          provider: resolved.provider,
-          title: input.titleSeed ?? input.message,
-          workspaceId: input.context.workspaceId,
-        })
-  const history = await listAgentMessages(conversation.id)
+  const existingConversation =
+    existingConversationCandidate &&
+    existingConversationCandidate.workspaceId === input.context.workspaceId
+      ? existingConversationCandidate
+      : null
+  const history = existingConversation
+    ? await listAgentMessages(existingConversation.id)
+    : []
   const pendingDateClarification = getPendingDateClarification(history)
   const isDateFollowUp =
     Boolean(pendingDateClarification) && isDateScopeOnlyPrompt(input.message)
@@ -3679,12 +3762,6 @@ export async function runAgentTurn(input: {
     isDateFollowUp && pendingDateClarification
       ? `Use ${input.message.trim()} as the date range for this question: ${pendingDateClarification}`
       : input.message
-  const userMessage = await createAgentMessage({
-    content: input.message,
-    conversationId: conversation.id,
-    role: "user",
-    workspaceId: input.context.workspaceId,
-  })
   const hasExplicitConfirmedOps =
     !input.presetId && Array.isArray(input.confirmedOps)
   const providedConfirmedOps = hasExplicitConfirmedOps
@@ -3697,7 +3774,9 @@ export async function runAgentTurn(input: {
       )
     : []
   const pendingWorkerPlanRecord = hasExplicitConfirmedOps
-    ? await getLatestPendingWorkerPlan(conversation.id)
+    ? existingConversation
+      ? await getLatestPendingWorkerPlan(existingConversation.id)
+      : null
     : null
   const pendingWorkerPlanResolution = pendingWorkerPlanRecord
     ? resolvePendingWorkerPlan({
@@ -3814,6 +3893,31 @@ export async function runAgentTurn(input: {
         : nonRunbookWorkerEnabled && workerEnabledByHeuristic
           ? "worker"
           : "tools"
+  const modelRequirement = resolveModelRequirementForTurnForTest({
+    executionMode,
+    hasCredential: hasWorkspaceCredential,
+    presetId: input.presetId,
+    requiresDateClarification,
+  })
+
+  if (modelRequirement.modelRequired && !modelRequirement.blockedReason) {
+    await resolveProviderModelsIfNeeded()
+  }
+
+  const conversation =
+    existingConversation ??
+    (await createAgentConversation({
+      model: synthesisModel,
+      provider: providerForRun,
+      title: input.titleSeed ?? input.message,
+      workspaceId: input.context.workspaceId,
+    }))
+  const userMessage = await createAgentMessage({
+    content: input.message,
+    conversationId: conversation.id,
+    role: "user",
+    workspaceId: input.context.workspaceId,
+  })
   const run = await createAgentRun({
     conversationId: conversation.id,
     executionMode,
@@ -3821,7 +3925,7 @@ export async function runAgentTurn(input: {
       executionMode === "direct" && !requiresDateClarification
         ? routerModel
         : synthesisModel,
-    provider: resolved.provider,
+    provider: providerForRun,
     requestedOps: [],
     usedTools: toolResults.map((tool) => tool.name),
     userMessageId: userMessage.id,
@@ -3841,15 +3945,27 @@ export async function runAgentTurn(input: {
   let workerResult: Record<string, unknown> | null = null
   let requestedOps: string[] = []
   let usageSummary: AgentUsageSummary | null = null
-  let blockedReason: string | null = preflightBlockedReason
+  let blockedReason: string | null =
+    preflightBlockedReason ?? modelRequirement.blockedReason
   let runStatus: AgentRunStatus | null = blockedReason ? "blocked" : null
+  const requireResolvedCredential = () => {
+    if (!credentialResolution) {
+      throw new Error("Agent credential was not resolved for a model-required turn.")
+    }
+
+    return credentialResolution
+  }
 
   try {
     await assertWorkspaceBudgetAvailable(input.context.workspaceId)
 
     warnings.push(...turnPlan.warnings)
-    if (routerModelResolution.warning) {
-      warnings.push(routerModelResolution.warning)
+    if (routerModelResolutionWarning) {
+      warnings.push(routerModelResolutionWarning)
+    }
+
+    if (modelRequirement.noModelWarning) {
+      warnings.push(modelRequirement.noModelWarning)
     }
 
     if (presetContext?.note) {
@@ -3913,11 +4029,11 @@ export async function runAgentTurn(input: {
                 why: pendingWorkerPlan.why ?? "",
               } satisfies WorkerPlan)
             : await generateWorkerPlan({
-                apiKey: resolved.apiKey,
+                apiKey: requireResolvedCredential().apiKey,
                 businessProfile,
                 context: scopeResolution.context,
                 model: routerModel,
-                provider: resolved.provider,
+                provider: providerForRun,
                 question: executionQuestion,
                 toolEvidence,
               })
@@ -3950,7 +4066,7 @@ export async function runAgentTurn(input: {
           const workerPlanUsage = buildUsageSegment({
             label: "Deep-analysis plan",
             model: routerModel,
-            provider: resolved.provider,
+            provider: providerForRun,
             usage: plan.usage,
           })
 
@@ -3958,7 +4074,7 @@ export async function runAgentTurn(input: {
             usageSegments.push({
               ...workerPlanUsage,
               model: routerModel,
-              provider: resolved.provider,
+              provider: providerForRun,
             })
           }
         }
@@ -4151,14 +4267,15 @@ export async function runAgentTurn(input: {
         question: scopeResolution.clarificationQuestion ?? analysisQuestion,
       })
     } else if (!blockedReason) {
+      const resolvedCredential = requireResolvedCredential()
       const completionResult = await completeWithProvider({
-        apiKey: resolved.apiKey,
+        apiKey: resolvedCredential.apiKey,
         maxTokens:
           executionMode === "direct"
             ? AGENT_MAX_DIRECT_COMPLETION_TOKENS
             : AGENT_MAX_COMPLETION_TOKENS,
         model: executionMode === "direct" ? routerModel : synthesisModel,
-        provider: resolved.provider,
+        provider: providerForRun,
         systemPrompt: buildAgentSystemPrompt({
           businessProfile,
           mode: requiresDateClarification
@@ -4193,7 +4310,7 @@ export async function runAgentTurn(input: {
       const answerUsage = buildUsageSegment({
         label: executionMode === "direct" ? "Direct response" : "Final answer",
         model: executionMode === "direct" ? routerModel : synthesisModel,
-        provider: resolved.provider,
+        provider: providerForRun,
         usage: completionResult?.usage,
       })
 
@@ -4201,7 +4318,7 @@ export async function runAgentTurn(input: {
         usageSegments.push({
           ...answerUsage,
           model: executionMode === "direct" ? routerModel : synthesisModel,
-          provider: resolved.provider,
+          provider: providerForRun,
         })
       }
 
@@ -4232,7 +4349,7 @@ export async function runAgentTurn(input: {
 
     usageSummary = buildUsageSummary({
       model: executionMode === "direct" ? routerModel : synthesisModel,
-      provider: resolved.provider,
+      provider: providerForRun,
       segments: usageSegments,
     })
 
@@ -4264,6 +4381,12 @@ export async function runAgentTurn(input: {
         charts,
         dateClarificationQuestion: requiresDateClarification
           ? scopeResolution.clarificationQuestion ?? effectiveAnalysisQuestion
+          : undefined,
+        deterministicNoModel: modelRequirement.noModelWarning
+          ? {
+              enabled: true,
+              note: modelRequirement.noModelWarning,
+            }
           : undefined,
         runStatus: resolvedRunStatus,
         scope: {
@@ -4326,6 +4449,12 @@ export async function runAgentTurn(input: {
         clarifyingOptions: undefined,
         charts: [],
         dateClarificationQuestion: undefined,
+        deterministicNoModel: modelRequirement.noModelWarning
+          ? {
+              enabled: true,
+              note: modelRequirement.noModelWarning,
+            }
+          : undefined,
         scope: {
           assumptionNote: scopeResolution.assumptionNote,
           confidence: scopeResolution.confidence,
