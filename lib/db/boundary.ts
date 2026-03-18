@@ -74,6 +74,12 @@ export const ECOMDASH2_TABLE_BOUNDARY = {
     orderBy:
       "date ASC, platform ASC, campaign_name ASC, adset_name ASC, ad_name ASC",
   },
+  factAdsSegmentsDaily: {
+    tableName: "fact_ads_segments_daily",
+    dateColumn: "date",
+    orderBy:
+      "date ASC, platform ASC, country ASC, device ASC, audience_segment ASC",
+  },
   contractCreativePerformance: {
     tableName: "contract_creative_performance",
     dateColumn: "date",

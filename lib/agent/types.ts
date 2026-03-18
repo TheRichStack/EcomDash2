@@ -119,6 +119,7 @@ export type AgentStorageConversation = {
 
 export type AgentToolName =
   | "ad_performance"
+  | "ad_segments"
   | "anomaly_scan"
   | "creative_performance"
   | "data_freshness"

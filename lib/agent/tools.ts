@@ -10,6 +10,7 @@ import { loadShopifyFunnelSlice } from "@/lib/server/loaders/shopify-funnel"
 import { loadShopifyInventorySlice } from "@/lib/server/loaders/shopify-inventory"
 import { loadShopifyProductsSlice } from "@/lib/server/loaders/shopify-products"
 import { loadAdPerformanceSlice } from "@/lib/server/loaders/ad-performance"
+import { loadAdSegmentsSlice } from "@/lib/server/loaders/ad-segments"
 import { buildAnomalyScan } from "@/lib/agent/anomalies"
 import {
   AGENT_MAX_TOOL_COUNT,
@@ -83,6 +84,21 @@ const CREATIVE_TERMS = [
   "static",
   "thumbnail",
   "ugc",
+] as const
+
+const SEGMENT_TERMS = [
+  "audience",
+  "audiences",
+  "country",
+  "countries",
+  "device",
+  "devices",
+  "desktop",
+  "geo",
+  "geographic",
+  "mobile",
+  "segment",
+  "segments",
 ] as const
 
 const INVENTORY_TERMS = [
@@ -204,6 +220,9 @@ const TOOL_PAYLOAD_CAPS = {
   productMatchingRows: 10,
   productTags: 30,
   productTopRows: 8,
+  segmentCountry: 12,
+  segmentDevice: 6,
+  segmentAudience: 10,
 } as const
 
 function asFiniteNumber(value: unknown) {
@@ -907,6 +926,52 @@ async function buildAnomalyTool(
   )
 }
 
+async function buildAdSegmentsTool(
+  context: DashboardRequestContext,
+  _message: string
+): Promise<AgentToolResult> {
+  void _message
+  const slice = await loadAdSegmentsSlice(context)
+  const byCountry = compactRows(slice.byCountry, TOOL_PAYLOAD_CAPS.segmentCountry)
+  const byDevice = compactRows(slice.byDevice, TOOL_PAYLOAD_CAPS.segmentDevice)
+  const byAudience = compactRows(slice.byAudience, TOOL_PAYLOAD_CAPS.segmentAudience)
+  const { kpis } = slice
+
+  return withEvidence(
+    {
+      data: {
+        byAudience,
+        byCountry,
+        byDevice,
+        kpis,
+        range: slice.range,
+      },
+      label: "Ad segment breakdown",
+      name: "ad_segments",
+      summary: `${byCountry.length} countries, ${byDevice.length} devices, ${byAudience.length} audience segments. Total spend ${kpis.totalSpend.toFixed(2)}, blended ROAS ${kpis.blendedRoas.toFixed(2)}.`,
+    },
+    {
+      caveats:
+        byCountry.length === 0 && byDevice.length === 0
+          ? ["No segment data found for selected date range."]
+          : [],
+      kpis: {
+        blendedRoas: roundNumber(kpis.blendedRoas, 2),
+        totalImpressions: roundNumber(kpis.totalImpressions, 0),
+        totalRevenue: roundNumber(kpis.totalRevenue, 2),
+        totalSpend: roundNumber(kpis.totalSpend, 2),
+      },
+      range: slice.range,
+      topDrivers: summarizeTopDrivers({
+        rows: byCountry,
+        cap: 3,
+        label: (row) => String((row as { value?: string }).value ?? "Unknown"),
+        score: (row) => asFiniteNumber((row as { spend?: number }).spend),
+      }),
+    }
+  )
+}
+
 const TOOL_BUILDERS: Record<
   AgentToolName,
   (
@@ -915,6 +980,7 @@ const TOOL_BUILDERS: Record<
   ) => Promise<AgentToolResult>
 > = {
   ad_performance: buildAdPerformanceTool,
+  ad_segments: buildAdSegmentsTool,
   anomaly_scan: buildAnomalyTool,
   creative_performance: buildCreativePerformanceTool,
   data_freshness: buildFreshnessTool,
@@ -949,6 +1015,14 @@ export function getRelevantAgentTools(message: string): AgentToolName[] {
 
   if (/\b(winning creative|top creative|best creative|worst creative|creative analysis|ad creative)\b/.test(normalized)) {
     selected.add("creative_performance")
+  }
+
+  if (hasAnyTerm(terms, SEGMENT_TERMS)) {
+    selected.add("ad_segments")
+  }
+
+  if (/\b(by country|by device|by audience|uk vs us|us vs uk|mobile vs desktop|desktop vs mobile|geo breakdown|audience breakdown)\b/.test(normalized)) {
+    selected.add("ad_segments")
   }
 
   if (hasAnyTerm(terms, INVENTORY_TERMS)) {
