@@ -596,6 +596,87 @@ function tokenizeMessage(message: string) {
     .filter(Boolean)
 }
 
+const SPECIFIC_DAY_MONTH_MAP: Record<string, { index: number; label: string }> = {
+  jan: { index: 0, label: "January" },
+  january: { index: 0, label: "January" },
+  feb: { index: 1, label: "February" },
+  february: { index: 1, label: "February" },
+  mar: { index: 2, label: "March" },
+  march: { index: 2, label: "March" },
+  apr: { index: 3, label: "April" },
+  april: { index: 3, label: "April" },
+  may: { index: 4, label: "May" },
+  jun: { index: 5, label: "June" },
+  june: { index: 5, label: "June" },
+  jul: { index: 6, label: "July" },
+  july: { index: 6, label: "July" },
+  aug: { index: 7, label: "August" },
+  august: { index: 7, label: "August" },
+  sep: { index: 8, label: "September" },
+  sept: { index: 8, label: "September" },
+  september: { index: 8, label: "September" },
+  oct: { index: 9, label: "October" },
+  october: { index: 9, label: "October" },
+  nov: { index: 10, label: "November" },
+  november: { index: 10, label: "November" },
+  dec: { index: 11, label: "December" },
+  december: { index: 11, label: "December" },
+}
+
+const MONTH_NAME_PAT =
+  "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
+
+// Matches "November the 16th, 2025", "Nov 16 2025", "November 16, 2025"
+const RE_MONTH_DAY_YEAR = new RegExp(
+  `\\b(${MONTH_NAME_PAT})\\.?\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(20\\d{2})\\b`,
+  "i"
+)
+
+// Matches "16th of November 2025", "16th November 2025", "16 November 2025"
+const RE_DAY_MONTH_YEAR = new RegExp(
+  `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_NAME_PAT})\\.?\\s+(20\\d{2})\\b`,
+  "i"
+)
+
+// Matches ISO "2025-11-16"
+const RE_ISO_DATE = /\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/
+
+function specificDayDateRange(message: string): { isoDate: string; label: string } | null {
+  const normalized = String(message ?? "").toLowerCase()
+
+  const m1 = normalized.match(RE_MONTH_DAY_YEAR)
+  if (m1) {
+    const monthKey = String(m1[1] ?? "").replace(/\.$/, "")
+    const month = SPECIFIC_DAY_MONTH_MAP[monthKey]
+    const day = Number(m1[2])
+    const year = Number(m1[3])
+    if (month !== undefined && day >= 1 && day <= 31 && Number.isInteger(year)) {
+      const isoDate = new Date(Date.UTC(year, month.index, day)).toISOString().slice(0, 10)
+      return { isoDate, label: `${month.label} ${day}, ${year}` }
+    }
+  }
+
+  const m2 = normalized.match(RE_DAY_MONTH_YEAR)
+  if (m2) {
+    const day = Number(m2[1])
+    const monthKey = String(m2[2] ?? "").replace(/\.$/, "")
+    const month = SPECIFIC_DAY_MONTH_MAP[monthKey]
+    const year = Number(m2[3])
+    if (month !== undefined && day >= 1 && day <= 31 && Number.isInteger(year)) {
+      const isoDate = new Date(Date.UTC(year, month.index, day)).toISOString().slice(0, 10)
+      return { isoDate, label: `${month.label} ${day}, ${year}` }
+    }
+  }
+
+  const mIso = normalized.match(RE_ISO_DATE)
+  if (mIso) {
+    const isoDate = `${mIso[1]}-${mIso[2]}-${mIso[3]}`
+    return { isoDate, label: isoDate }
+  }
+
+  return null
+}
+
 function monthYearDateRange(message: string) {
   const normalized = String(message ?? "").toLowerCase()
   const match = normalized.match(
@@ -885,6 +966,22 @@ function parseContextOverride(
     }
   }
 
+  const specificDay = specificDayDateRange(normalized)
+
+  if (specificDay) {
+    return {
+      context: {
+        ...baseContext,
+        from: specificDay.isoDate,
+        to: specificDay.isoDate,
+      },
+      confidence: "high",
+      source: "explicit",
+      warning: `Using requested date range: ${specificDay.label} (${specificDay.isoDate}).`,
+      assumptionNote: null,
+    }
+  }
+
   const eventScope = resolveEventScope(normalized)
 
   if (eventScope) {
@@ -1003,6 +1100,7 @@ function hasDateScopeHint(message: string) {
     /\blast month\b/.test(normalized) ||
     monthYearDateRange(normalized) !== null ||
     monthShortYearDateRange(normalized) !== null ||
+    specificDayDateRange(normalized) !== null ||
     resolveEventScope(normalized) !== null
   )
 }
