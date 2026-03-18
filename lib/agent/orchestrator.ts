@@ -1029,10 +1029,14 @@ function parseContextOverride(
     }
   }
 
-  const trailingMatch = normalized.match(/\blast\s+(7|30|90)\s+days?\b/)
+  const daysMatch = normalized.match(/\b(?:last|past)\s+(\d+)\s+days?\b/)
+  const weeksMatch = normalized.match(/\b(?:last|past)\s+(\d+)\s+weeks?\b/)
 
-  if (trailingMatch) {
-    const days = Number(trailingMatch[1])
+  if (daysMatch || weeksMatch) {
+    const rawDays = daysMatch
+      ? Number(daysMatch[1])
+      : Number(weeksMatch![1]) * 7
+    const days = Math.min(rawDays, 365)
     const from = addUtcDays(today, -(days - 1))
     return {
       context: {
@@ -1095,7 +1099,7 @@ function hasDateScopeHint(message: string) {
     normalized.includes("selected range") ||
     /\btoday\b/.test(normalized) ||
     /\byesterday\b/.test(normalized) ||
-    /\blast\s+(7|30|90)\s+days?\b/.test(normalized) ||
+    /\b(?:last|past)\s+\d+\s+(?:days?|weeks?)\b/.test(normalized) ||
     /\bthis month\b/.test(normalized) ||
     /\blast month\b/.test(normalized) ||
     monthYearDateRange(normalized) !== null ||
