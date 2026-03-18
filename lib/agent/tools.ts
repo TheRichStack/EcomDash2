@@ -12,6 +12,7 @@ import { loadShopifyProductsSlice } from "@/lib/server/loaders/shopify-products"
 import { loadAdPerformanceSlice } from "@/lib/server/loaders/ad-performance"
 import { loadAdSegmentsSlice } from "@/lib/server/loaders/ad-segments"
 import { loadOrderAnalysisSlice } from "@/lib/server/loaders/order-analysis"
+import { loadBudgetVsActualSlice } from "@/lib/server/loaders/budget-vs-actual"
 import { buildAnomalyScan } from "@/lib/agent/anomalies"
 import {
   AGENT_MAX_TOOL_COUNT,
@@ -116,6 +117,17 @@ const ORDER_TERMS = [
   "returning customer",
   "returning customers",
   "utm",
+] as const
+
+const BUDGET_TERMS = [
+  "budget",
+  "budgets",
+  "forecast",
+  "overspend",
+  "pacing",
+  "pace",
+  "planned",
+  "underspend",
 ] as const
 
 const INVENTORY_TERMS = [
@@ -243,6 +255,7 @@ const TOOL_PAYLOAD_CAPS = {
   orderUtmSource: 10,
   orderSource: 8,
   orderCountry: 12,
+  budgetChannels: 10,
 } as const
 
 function asFiniteNumber(value: unknown) {
@@ -1039,6 +1052,54 @@ async function buildOrderAnalysisTool(
   )
 }
 
+async function buildBudgetVsActualTool(
+  context: DashboardRequestContext,
+  _message: string
+): Promise<AgentToolResult> {
+  void _message
+  const slice = await loadBudgetVsActualSlice(context)
+  const channels = compactRows(slice.channels, TOOL_PAYLOAD_CAPS.budgetChannels)
+  const { totals } = slice
+
+  return withEvidence(
+    {
+      data: {
+        channels,
+        range: slice.range,
+        totals,
+      },
+      label: "Budget vs actual",
+      name: "budget_vs_actual",
+      summary: `${channels.length} channels. Total budgeted ${totals.budgetedAmount.toFixed(2)}, actual spend ${totals.actualSpend.toFixed(2)}, pace ${totals.pacePercent.toFixed(1)}%.`,
+    },
+    {
+      caveats: (() => {
+        const c: string[] = []
+        if (totals.budgetedAmount === 0) {
+          c.push("No budget plan found for the selected period. Set up budgets in Settings.")
+        }
+        if (totals.actualSpend === 0) {
+          c.push("No actual spend data found for the selected date range.")
+        }
+        return c
+      })(),
+      kpis: {
+        actualSpend: roundNumber(totals.actualSpend, 2),
+        budgetedAmount: roundNumber(totals.budgetedAmount, 2),
+        pacePercent: roundNumber(totals.pacePercent, 1),
+        remainingBudget: roundNumber(totals.remainingBudget, 2),
+      },
+      range: slice.range,
+      topDrivers: summarizeTopDrivers({
+        rows: channels,
+        cap: 3,
+        label: (row) => String((row as { channel?: string }).channel ?? "Unknown"),
+        score: (row) => asFiniteNumber((row as { actualSpend?: number }).actualSpend),
+      }),
+    }
+  )
+}
+
 const TOOL_BUILDERS: Record<
   AgentToolName,
   (
@@ -1049,6 +1110,7 @@ const TOOL_BUILDERS: Record<
   ad_performance: buildAdPerformanceTool,
   ad_segments: buildAdSegmentsTool,
   anomaly_scan: buildAnomalyTool,
+  budget_vs_actual: buildBudgetVsActualTool,
   creative_performance: buildCreativePerformanceTool,
   data_freshness: buildFreshnessTool,
   email_performance: buildEmailTool,
@@ -1099,6 +1161,14 @@ export function getRelevantAgentTools(message: string): AgentToolName[] {
 
   if (/\b(new customer|returning customer|utm source|by channel|by source|order breakdown|acquisition channel|first.?time buyer)\b/.test(normalized)) {
     selected.add("order_analysis")
+  }
+
+  if (hasAnyTerm(terms, BUDGET_TERMS)) {
+    selected.add("budget_vs_actual")
+  }
+
+  if (/\b(on track|over budget|under budget|month.?end|pacing|budget check|spend forecast)\b/.test(normalized)) {
+    selected.add("budget_vs_actual")
   }
 
   if (hasAnyTerm(terms, INVENTORY_TERMS)) {

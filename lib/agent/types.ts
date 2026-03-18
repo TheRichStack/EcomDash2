@@ -121,6 +121,7 @@ export type AgentToolName =
   | "ad_performance"
   | "ad_segments"
   | "anomaly_scan"
+  | "budget_vs_actual"
   | "creative_performance"
   | "data_freshness"
   | "email_performance"
