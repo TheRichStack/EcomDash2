@@ -20,6 +20,17 @@ const ALLOWED_SQL_TABLES: string[] = Object.values(ECOMDASH2_TABLE_BOUNDARY).map
   (entry) => entry.tableName
 )
 
+const ALLOWED_JOIN_PAIRS: ReadonlyArray<readonly [string, string]> = [
+  ["fact_orders", "fact_order_items"],
+  ["fact_ads_daily", "contract_daily_channel_campaign"],
+  ["contract_creative_performance", "dim_creative"],
+  ["fact_orders", "fact_ads_daily"],
+] as const
+
+const ALLOWED_JOIN_PAIR_KEYS = new Set(
+  ALLOWED_JOIN_PAIRS.map(([a, b]) => [a, b].sort().join("|"))
+)
+
 function requireAgentSecret() {
   const secret = String(env.agent.sharedSecret ?? "").trim()
 
@@ -110,27 +121,6 @@ export function sanitizeAgentSqlQuery(sql: string, workspaceId: string) {
     normalized.matchAll(/\b(?:from|join)\s+([a-zA-Z0-9_]+)/gi)
   ).map((match) => String(match[1] ?? "").trim())
 
-  if (tables.length !== 1) {
-    throw new Error("SQL broker currently supports single-table queries only.")
-  }
-
-  if (!ALLOWED_SQL_TABLES.includes(tables[0])) {
-    throw new Error(`Table "${tables[0]}" is not in the allowed boundary.`)
-  }
-
-  const match = normalized.match(
-    /^select\s+([\s\S]+?)\s+from\s+([a-zA-Z0-9_]+)([\s\S]*)$/i
-  )
-
-  if (!match) {
-    throw new Error("Unable to parse the SQL query.")
-  }
-
-  const [, selectClause, tableName, tailRaw] = match
-  const tail = String(tailRaw ?? "")
-  const whereMatch = tail.match(
-    /^\s*where\s+([\s\S]*?)(\s+order\s+by[\s\S]*|\s+limit\s+[\s\S]*|)$/i
-  )
   const enforceSqlLimit = (statement: string) => {
     const limitMatch = statement.match(/\blimit\s+(\d+)\b/i)
 
@@ -150,6 +140,55 @@ export function sanitizeAgentSqlQuery(sql: string, workspaceId: string) {
 
     return statement
   }
+
+  if (tables.length < 1 || tables.length > 2) {
+    throw new Error(`SQL broker supports 1–2 tables, got ${tables.length}.`)
+  }
+
+  for (const table of tables) {
+    if (!ALLOWED_SQL_TABLES.includes(table)) {
+      throw new Error(`Table "${table}" is not in the allowed boundary.`)
+    }
+  }
+
+  if (tables.length === 2) {
+    const pairKey = [...tables].sort().join("|")
+
+    if (!ALLOWED_JOIN_PAIR_KEYS.has(pairKey)) {
+      throw new Error(
+        `Join between "${tables[0]}" and "${tables[1]}" is not in the allowed join whitelist.`
+      )
+    }
+
+    if (/\b(left|right|cross|full|outer)\s*(outer\s+)?join\b/i.test(normalized)) {
+      throw new Error("Only INNER JOIN is allowed in multi-table queries.")
+    }
+
+    if (!/\bwhere\b[\s\S]*\bworkspace_id\b/i.test(normalized)) {
+      throw new Error(
+        "Multi-table queries must filter by workspace_id in the WHERE clause."
+      )
+    }
+
+    return {
+      args: [],
+      sql: enforceSqlLimit(normalized),
+    }
+  }
+
+  const match = normalized.match(
+    /^select\s+([\s\S]+?)\s+from\s+([a-zA-Z0-9_]+)([\s\S]*)$/i
+  )
+
+  if (!match) {
+    throw new Error("Unable to parse the SQL query.")
+  }
+
+  const [, selectClause, tableName, tailRaw] = match
+  const tail = String(tailRaw ?? "")
+  const whereMatch = tail.match(
+    /^\s*where\s+([\s\S]*?)(\s+order\s+by[\s\S]*|\s+limit\s+[\s\S]*|)$/i
+  )
 
   if (whereMatch) {
     const whereBody = String(whereMatch[1] ?? "").trim()
