@@ -79,6 +79,9 @@ function buildModeInstructions(mode: AgentSystemPromptMode) {
         "Use concise markdown.",
         "Separate facts from recommendations.",
         "If confidence is limited, say so clearly.",
+        "For simple factual queries (one metric, one date, one channel), answer in 1–2 direct sentences.",
+        "Reserve structured sections for multi-metric diagnostic questions where structure aids clarity.",
+        "Never add a Recommendations section unless the user explicitly asked for recommendations.",
       ].join("\n")
   }
 }
