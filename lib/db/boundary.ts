@@ -143,6 +143,10 @@ export const ECOMDASH2_TABLE_BOUNDARY = {
     dateColumn: "send_date",
     orderBy: "send_date ASC",
   },
+  contractCustomerCohorts: {
+    tableName: "contract_customer_cohorts",
+    orderBy: "cohort_month ASC, months_since_acquisition ASC",
+  },
 } as const satisfies Record<string, TableSpec>
 
 export type EcomDash2TableKey = keyof typeof ECOMDASH2_TABLE_BOUNDARY
