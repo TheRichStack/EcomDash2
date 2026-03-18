@@ -13,6 +13,7 @@ import { loadAdPerformanceSlice } from "@/lib/server/loaders/ad-performance"
 import { loadAdSegmentsSlice } from "@/lib/server/loaders/ad-segments"
 import { loadOrderAnalysisSlice } from "@/lib/server/loaders/order-analysis"
 import { loadBudgetVsActualSlice } from "@/lib/server/loaders/budget-vs-actual"
+import { loadCustomerCohortsSlice } from "@/lib/server/loaders/customer-cohorts"
 import { buildAnomalyScan } from "@/lib/agent/anomalies"
 import {
   AGENT_MAX_TOOL_COUNT,
@@ -31,6 +32,7 @@ export const AGENT_TOOL_CATALOG: AgentToolCatalogItem[] = [
   { name: "anomaly_scan",      description: "Detects unusual metric movements compared to the prior period across revenue, spend, and key KPIs." },
   { name: "budget_vs_actual",  description: "Planned monthly budget vs actual spend by channel; pacing percentage and over/underspend." },
   { name: "creative_performance", description: "Creative-level spend, ROAS, hook rate, and video completion metrics; best and worst performing creatives." },
+  { name: "customer_cohorts", description: "Customer LTV, cohort retention curves, acquisition volume by month, and 3/6/12-month revenue per acquired customer." },
   { name: "data_freshness",    description: "Shows when each data source (Shopify, Meta, Google, TikTok, Klaviyo) was last synced." },
   { name: "email_performance", description: "Email campaign and flow metrics: open rate, click rate, revenue per email, unsubscribes." },
   { name: "inventory_risk",    description: "Inventory levels, days of stock remaining, and stockout risk per product and variant." },
@@ -148,6 +150,18 @@ const BUDGET_TERMS = [
   "pace",
   "planned",
   "underspend",
+] as const
+
+const COHORT_TERMS = [
+  "cac",
+  "cohort",
+  "cohorts",
+  "ltv",
+  "lifetime",
+  "payback",
+  "repeat",
+  "repurchase",
+  "retention",
 ] as const
 
 const INVENTORY_TERMS = [
@@ -276,6 +290,7 @@ const TOOL_PAYLOAD_CAPS = {
   orderSource: 8,
   orderCountry: 12,
   budgetChannels: 10,
+  cohortRows: 12,
 } as const
 
 function asFiniteNumber(value: unknown) {
@@ -1120,6 +1135,55 @@ async function buildBudgetVsActualTool(
   )
 }
 
+async function buildCustomerCohortsTool(
+  context: DashboardRequestContext,
+  _message: string
+): Promise<AgentToolResult> {
+  void _message
+  const slice = await loadCustomerCohortsSlice(context)
+  const recentCohorts = compactRows(slice.acquisitionByMonth, TOOL_PAYLOAD_CAPS.cohortRows)
+  const { totals } = slice
+
+  return withEvidence(
+    {
+      data: {
+        acquisitionByMonth: recentCohorts,
+        retentionCurve: slice.retentionCurve,
+        range: slice.range,
+        totals,
+      },
+      label: "Customer cohorts",
+      name: "customer_cohorts",
+      summary: `${totals.totalNewCustomers} new customers across ${recentCohorts.length} cohort months. Avg LTV: 3mo ${totals.avgLtv3Month.toFixed(2)}, 6mo ${totals.avgLtv6Month.toFixed(2)}, 12mo ${totals.avgLtv12Month.toFixed(2)}.`,
+    },
+    {
+      caveats: (() => {
+        const c: string[] = []
+        if (totals.totalNewCustomers === 0) {
+          c.push("No cohort data found. Run a daily reconcile to populate customer cohorts.")
+        }
+        if (totals.avgLtv6Month === 0) {
+          c.push("LTV estimates require at least 6 months of post-acquisition order history.")
+        }
+        return c
+      })(),
+      kpis: {
+        avgLtv12Month: roundNumber(totals.avgLtv12Month, 2),
+        avgLtv3Month: roundNumber(totals.avgLtv3Month, 2),
+        avgLtv6Month: roundNumber(totals.avgLtv6Month, 2),
+        totalNewCustomers: roundNumber(totals.totalNewCustomers, 0),
+      },
+      range: slice.range,
+      topDrivers: summarizeTopDrivers({
+        rows: recentCohorts,
+        cap: 3,
+        label: (row) => String((row as { cohortMonth?: string }).cohortMonth ?? ""),
+        score: (row) => asFiniteNumber((row as { newCustomers?: number }).newCustomers),
+      }),
+    }
+  )
+}
+
 const TOOL_BUILDERS: Record<
   AgentToolName,
   (
@@ -1132,6 +1196,7 @@ const TOOL_BUILDERS: Record<
   anomaly_scan: buildAnomalyTool,
   budget_vs_actual: buildBudgetVsActualTool,
   creative_performance: buildCreativePerformanceTool,
+  customer_cohorts: buildCustomerCohortsTool,
   data_freshness: buildFreshnessTool,
   email_performance: buildEmailTool,
   inventory_risk: buildInventoryTool,
@@ -1203,6 +1268,14 @@ export async function getRelevantAgentTools(
 
   if (/\b(on track|over budget|under budget|month.?end|pacing|budget check|spend forecast)\b/.test(normalized)) {
     selected.add("budget_vs_actual")
+  }
+
+  if (hasAnyTerm(terms, COHORT_TERMS)) {
+    selected.add("customer_cohorts")
+  }
+
+  if (/\b(payback period|acquisition cost|returning customer revenue|repeat purchase|repeat rate|90.?day ltv|customer value)\b/.test(normalized)) {
+    selected.add("customer_cohorts")
   }
 
   if (hasAnyTerm(terms, INVENTORY_TERMS)) {

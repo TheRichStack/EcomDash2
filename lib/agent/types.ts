@@ -123,6 +123,7 @@ export type AgentToolName =
   | "anomaly_scan"
   | "budget_vs_actual"
   | "creative_performance"
+  | "customer_cohorts"
   | "data_freshness"
   | "email_performance"
   | "inventory_risk"
