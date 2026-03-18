@@ -3,7 +3,7 @@ import "server-only"
 import { env } from "@/lib/env"
 import { loadEmailSlice } from "@/lib/server/loaders/email"
 import { loadOverviewSlice } from "@/lib/server/loaders/overview"
-import { loadPaidMediaSlice } from "@/lib/server/loaders/paid-media"
+import { loadCreativeSlice, loadPaidMediaSlice } from "@/lib/server/loaders/paid-media"
 import { getComparisonRange } from "@/lib/server/date-ranges"
 import { loadSettingsSlice } from "@/lib/server/loaders/settings"
 import { loadShopifyFunnelSlice } from "@/lib/server/loaders/shopify-funnel"
@@ -59,6 +59,17 @@ const PAID_MEDIA_TERMS = [
   "roas",
   "spend",
   "tiktok",
+] as const
+
+const CREATIVE_TERMS = [
+  "creative",
+  "creatives",
+  "format",
+  "headline",
+  "hook",
+  "static",
+  "thumbnail",
+  "ugc",
 ] as const
 
 const INVENTORY_TERMS = [
@@ -160,6 +171,7 @@ const PRODUCT_MATCH_STOP_WORDS = new Set([
 
 const TOOL_PAYLOAD_CAPS = {
   anomalyCoverage: 6,
+  creativeRows: 15,
   anomalySignals: 20,
   emailCampaigns: 8,
   emailFlows: 8,
@@ -745,6 +757,57 @@ async function buildFreshnessTool(
   )
 }
 
+async function buildCreativePerformanceTool(
+  context: DashboardRequestContext,
+  _message: string
+): Promise<AgentToolResult> {
+  void _message
+  const slice = await loadCreativeSlice(context)
+  const topRows = compactRows(
+    slice.currentRange.rows,
+    TOOL_PAYLOAD_CAPS.creativeRows
+  )
+  const totals = slice.currentRange.totals
+
+  return withEvidence(
+    {
+      data: {
+        comparison: slice.comparison?.totals ?? null,
+        currency: slice.settings.currency,
+        range: slice.currentRange.range,
+        topCreatives: topRows,
+        totals,
+      },
+      label: "Creative performance",
+      name: "creative_performance",
+      summary: `${topRows.length} creatives returned. Total spend ${totals.spend.toFixed(2)}, ROAS ${totals.roas.toFixed(2)}.`,
+    },
+    {
+      caveats: topRows.length === 0
+        ? ["No creative data found for selected date range."]
+        : [],
+      kpis: {
+        roas: roundNumber(totals.roas, 2),
+        spend: roundNumber(totals.spend, 2),
+        revenue: roundNumber(totals.revenue, 2),
+        impressions: roundNumber(totals.impressions, 0),
+      },
+      range: slice.currentRange.range,
+      topDrivers: summarizeTopDrivers({
+        rows: topRows,
+        cap: 3,
+        label: (row) =>
+          String(
+            (row as { headline?: string }).headline ||
+            (row as { adName?: string }).adName ||
+            "Unknown"
+          ),
+        score: (row) => asFiniteNumber((row as { spend?: number }).spend),
+      }),
+    }
+  )
+}
+
 async function buildAnomalyTool(
   context: DashboardRequestContext,
   _message: string
@@ -798,6 +861,7 @@ const TOOL_BUILDERS: Record<
   ) => Promise<AgentToolResult>
 > = {
   anomaly_scan: buildAnomalyTool,
+  creative_performance: buildCreativePerformanceTool,
   data_freshness: buildFreshnessTool,
   email_performance: buildEmailTool,
   inventory_risk: buildInventoryTool,
@@ -814,6 +878,14 @@ export function getRelevantAgentTools(message: string): AgentToolName[] {
 
   if (hasAnyTerm(terms, PAID_MEDIA_TERMS)) {
     selected.add("paid_media_summary")
+  }
+
+  if (hasAnyTerm(terms, CREATIVE_TERMS)) {
+    selected.add("creative_performance")
+  }
+
+  if (/\b(winning creative|top creative|best creative|worst creative|creative analysis|ad creative)\b/.test(normalized)) {
+    selected.add("creative_performance")
   }
 
   if (hasAnyTerm(terms, INVENTORY_TERMS)) {
