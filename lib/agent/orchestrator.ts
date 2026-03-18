@@ -4076,7 +4076,7 @@ export async function runAgentTurn(input: {
         })
   const preset = input.presetId ? getAgentPreset(input.presetId) : null
   const workerEnabledByHeuristic = shouldUseWorker(analysisQuestion, toolNames)
-  const nonRunbookWorkerEnabled = env.agent.enableWorker === true
+  const nonRunbookWorkerEnabled = true
   const executionMode: AgentExecutionMode =
     hasExplicitConfirmedOps
       ? "worker"
@@ -4190,12 +4190,6 @@ export async function runAgentTurn(input: {
       pushUniqueWarning(
         warnings,
         "Terminology guardrail: conversion/funnel language is estimated rather than exact."
-      )
-    }
-
-    if (!input.presetId && workerEnabledByHeuristic && !nonRunbookWorkerEnabled) {
-      warnings.push(
-        "Deep analysis worker is disabled for free-form turns. Set ECOMDASH2_AGENT_ENABLE_WORKER=1 to enable it."
       )
     }
 

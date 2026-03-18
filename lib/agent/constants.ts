@@ -30,8 +30,8 @@ export const AGENT_EVENT_CONTENT_TYPE = "application/x-ndjson; charset=utf-8"
 
 export const AGENT_MAX_MESSAGE_CHARS = 1200
 export const AGENT_MAX_PRESET_MESSAGE_CHARS = 12000
-export const AGENT_MAX_TOOL_COUNT = 3
-export const AGENT_MAX_COMPLETION_TOKENS = 900
+export const AGENT_MAX_TOOL_COUNT = 5
+export const AGENT_MAX_COMPLETION_TOKENS = 2000
 export const AGENT_MAX_DIRECT_COMPLETION_TOKENS = 160
 export const AGENT_MAX_PLAN_TOKENS = 700
 export const AGENT_PROMPT_HISTORY_SUMMARY_CHARS = 700
