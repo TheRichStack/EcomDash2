@@ -172,6 +172,8 @@ const INVENTORY_TERMS = [
 ] as const
 
 const PRODUCT_TERMS = [
+  "gross",
+  "margin",
   "product",
   "products",
   "sku",
@@ -407,6 +409,7 @@ async function buildAdPerformanceTool(
         blendedRoas: roundNumber(slice.kpis.blendedRoas, 2),
         totalImpressions: roundNumber(slice.kpis.totalImpressions, 0),
         totalSpend: roundNumber(slice.kpis.totalSpend, 2),
+        // hookRate: not available as a kpis aggregate — per-row only; use topAds rows for video analysis
       },
       range: slice.range,
       topDrivers: summarizeTopDrivers({
@@ -530,7 +533,7 @@ async function buildPaidMediaTool(
       },
       label: "Paid media performance",
       name: "paid_media_summary",
-      summary: `Spend ${totals.spend.toFixed(2)}, attributed revenue ${totals.attributedRevenue.toFixed(2)}, ROAS ${totals.roas.toFixed(2)}, CPA ${totals.cpa.toFixed(2)}.`,
+      summary: `Spend ${totals.spend.toFixed(2)}, attributed revenue ${totals.attributedRevenue.toFixed(2)}, ROAS ${totals.roas.toFixed(2)}, CPA ${totals.cpa.toFixed(2)}, impressions ${totals.impressions.toFixed(0)}.`,
     },
     {
       caveats: [
@@ -541,7 +544,11 @@ async function buildPaidMediaTool(
       ].filter((entry): entry is string => Boolean(entry)),
       kpis: {
         attributedRevenue: roundNumber(totals.attributedRevenue, 2),
+        clicks: roundNumber(totals.clicks, 0),
         cpa: roundNumber(totals.cpa, 2),
+        cpm: roundNumber(totals.cpm, 2),
+        ctr: roundNumber(totals.ctr, 2),
+        impressions: roundNumber(totals.impressions, 0),
         roas: roundNumber(totals.roas, 2),
         spend: roundNumber(totals.spend, 2),
       },
@@ -819,7 +826,7 @@ async function buildEmailTool(
       },
       label: "Email performance",
       name: "email_performance",
-      summary: `Email revenue ${slice.currentRange.kpis.revenue.toFixed(2)}, sends ${slice.currentRange.kpis.sends.toFixed(0)}, open rate ${slice.currentRange.kpis.openRate.toFixed(1)}%.`,
+      summary: `Email revenue ${slice.currentRange.kpis.revenue.toFixed(2)}, sends ${slice.currentRange.kpis.sends.toFixed(0)}, open rate ${slice.currentRange.kpis.openRate.toFixed(1)}%, click rate ${slice.currentRange.kpis.clickRate.toFixed(1)}%.`,
     },
     {
       caveats: [
@@ -829,9 +836,11 @@ async function buildEmailTool(
           : String(slice.settings.flowSequence.reason),
       ].filter((entry): entry is string => Boolean(entry)),
       kpis: {
+        clickRate: roundNumber(slice.currentRange.kpis.clickRate, 2),
         openRate: roundNumber(slice.currentRange.kpis.openRate, 2),
         revenue: roundNumber(slice.currentRange.kpis.revenue, 2),
         sends: roundNumber(slice.currentRange.kpis.sends, 0),
+        // unsubscribes: not available on EmailKpiTotals — only in per-row seed; omitted
       },
       range: slice.currentRange.range,
       topDrivers: summarizeTopDrivers({
@@ -943,7 +952,7 @@ async function buildCreativePerformanceTool(
             (row as { adName?: string }).adName ||
             "Unknown"
           ),
-        score: (row) => asFiniteNumber((row as { spend?: number }).spend),
+        score: (row) => asFiniteNumber((row as { roas?: number }).roas),
       }),
     }
   )
@@ -1028,6 +1037,7 @@ async function buildAdSegmentsTool(
         totalImpressions: roundNumber(kpis.totalImpressions, 0),
         totalRevenue: roundNumber(kpis.totalRevenue, 2),
         totalSpend: roundNumber(kpis.totalSpend, 2),
+        // totalClicks, cpm, ctr: not on kpis aggregate in the loader — per-segment rows have ctr
       },
       range: slice.range,
       topDrivers: summarizeTopDrivers({
