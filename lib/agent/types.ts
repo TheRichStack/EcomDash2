@@ -125,6 +125,7 @@ export type AgentToolName =
   | "data_freshness"
   | "email_performance"
   | "inventory_risk"
+  | "order_analysis"
   | "overview_summary"
   | "paid_media_summary"
   | "product_performance"

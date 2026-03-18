@@ -11,6 +11,7 @@ import { loadShopifyInventorySlice } from "@/lib/server/loaders/shopify-inventor
 import { loadShopifyProductsSlice } from "@/lib/server/loaders/shopify-products"
 import { loadAdPerformanceSlice } from "@/lib/server/loaders/ad-performance"
 import { loadAdSegmentsSlice } from "@/lib/server/loaders/ad-segments"
+import { loadOrderAnalysisSlice } from "@/lib/server/loaders/order-analysis"
 import { buildAnomalyScan } from "@/lib/agent/anomalies"
 import {
   AGENT_MAX_TOOL_COUNT,
@@ -99,6 +100,22 @@ const SEGMENT_TERMS = [
   "mobile",
   "segment",
   "segments",
+] as const
+
+const ORDER_TERMS = [
+  "acquisition",
+  "channel",
+  "direct",
+  "first order",
+  "new customer",
+  "new customers",
+  "order",
+  "orders",
+  "organic",
+  "referral",
+  "returning customer",
+  "returning customers",
+  "utm",
 ] as const
 
 const INVENTORY_TERMS = [
@@ -223,6 +240,9 @@ const TOOL_PAYLOAD_CAPS = {
   segmentCountry: 12,
   segmentDevice: 6,
   segmentAudience: 10,
+  orderUtmSource: 10,
+  orderSource: 8,
+  orderCountry: 12,
 } as const
 
 function asFiniteNumber(value: unknown) {
@@ -972,6 +992,53 @@ async function buildAdSegmentsTool(
   )
 }
 
+async function buildOrderAnalysisTool(
+  context: DashboardRequestContext,
+  _message: string
+): Promise<AgentToolResult> {
+  void _message
+  const slice = await loadOrderAnalysisSlice(context)
+  const byUtmSource = compactRows(slice.byUtmSource, TOOL_PAYLOAD_CAPS.orderUtmSource)
+  const bySource = compactRows(slice.bySource, TOOL_PAYLOAD_CAPS.orderSource)
+  const byCountry = compactRows(slice.byCountry, TOOL_PAYLOAD_CAPS.orderCountry)
+  const { kpis } = slice
+
+  return withEvidence(
+    {
+      data: {
+        byCountry,
+        bySource,
+        byUtmSource,
+        kpis,
+        range: slice.range,
+      },
+      label: "Order analysis",
+      name: "order_analysis",
+      summary: `${kpis.totalOrders} orders. New customer rate ${(kpis.newCustomerRate * 100).toFixed(1)}%, AOV ${kpis.aov.toFixed(2)}, total revenue ${kpis.totalRevenue.toFixed(2)}.`,
+    },
+    {
+      caveats:
+        kpis.totalOrders === 0
+          ? ["No order data found for selected date range."]
+          : [],
+      kpis: {
+        aov: roundNumber(kpis.aov, 2),
+        newCustomerRate: roundNumber(kpis.newCustomerRate, 4),
+        totalOrders: roundNumber(kpis.totalOrders, 0),
+        totalRevenue: roundNumber(kpis.totalRevenue, 2),
+      },
+      range: slice.range,
+      topDrivers: summarizeTopDrivers({
+        rows: byUtmSource,
+        cap: 3,
+        label: (row) => String((row as { value?: string }).value ?? "Unknown"),
+        score: (row) =>
+          asFiniteNumber((row as { totalRevenue?: number }).totalRevenue),
+      }),
+    }
+  )
+}
+
 const TOOL_BUILDERS: Record<
   AgentToolName,
   (
@@ -986,6 +1053,7 @@ const TOOL_BUILDERS: Record<
   data_freshness: buildFreshnessTool,
   email_performance: buildEmailTool,
   inventory_risk: buildInventoryTool,
+  order_analysis: buildOrderAnalysisTool,
   overview_summary: buildOverviewTool,
   paid_media_summary: buildPaidMediaTool,
   product_performance: buildProductsTool,
@@ -1023,6 +1091,14 @@ export function getRelevantAgentTools(message: string): AgentToolName[] {
 
   if (/\b(by country|by device|by audience|uk vs us|us vs uk|mobile vs desktop|desktop vs mobile|geo breakdown|audience breakdown)\b/.test(normalized)) {
     selected.add("ad_segments")
+  }
+
+  if (hasAnyTerm(terms, ORDER_TERMS)) {
+    selected.add("order_analysis")
+  }
+
+  if (/\b(new customer|returning customer|utm source|by channel|by source|order breakdown|acquisition channel|first.?time buyer)\b/.test(normalized)) {
+    selected.add("order_analysis")
   }
 
   if (hasAnyTerm(terms, INVENTORY_TERMS)) {
