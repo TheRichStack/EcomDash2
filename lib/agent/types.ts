@@ -118,14 +118,15 @@ export type AgentStorageConversation = {
 }
 
 export type AgentToolName =
-  | "overview_summary"
-  | "traffic_conversion"
-  | "paid_media_summary"
-  | "inventory_risk"
-  | "product_performance"
-  | "email_performance"
-  | "data_freshness"
+  | "ad_performance"
   | "anomaly_scan"
+  | "data_freshness"
+  | "email_performance"
+  | "inventory_risk"
+  | "overview_summary"
+  | "paid_media_summary"
+  | "product_performance"
+  | "traffic_conversion"
 
 export type AgentToolResult = {
   name: string

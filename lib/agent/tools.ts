@@ -9,6 +9,7 @@ import { loadSettingsSlice } from "@/lib/server/loaders/settings"
 import { loadShopifyFunnelSlice } from "@/lib/server/loaders/shopify-funnel"
 import { loadShopifyInventorySlice } from "@/lib/server/loaders/shopify-inventory"
 import { loadShopifyProductsSlice } from "@/lib/server/loaders/shopify-products"
+import { loadAdPerformanceSlice } from "@/lib/server/loaders/ad-performance"
 import { buildAnomalyScan } from "@/lib/agent/anomalies"
 import {
   AGENT_MAX_TOOL_COUNT,
@@ -47,6 +48,18 @@ function productNameIncludesToken(productName: string, token: string) {
 function hasAnyTerm(terms: Set<string>, values: readonly string[]) {
   return values.some((value) => terms.has(value))
 }
+
+const AD_PERF_TERMS = [
+  "adset",
+  "adsets",
+  "cpm",
+  "ctr",
+  "hook",
+  "impression",
+  "impressions",
+  "outbound",
+  "video",
+] as const
 
 const PAID_MEDIA_TERMS = [
   "ads",
@@ -159,6 +172,7 @@ const PRODUCT_MATCH_STOP_WORDS = new Set([
 ])
 
 const TOOL_PAYLOAD_CAPS = {
+  adPerfRows: 20,
   anomalyCoverage: 6,
   anomalySignals: 20,
   emailCampaigns: 8,
@@ -263,6 +277,46 @@ export function isBusinessAnalysisPrompt(message: string) {
     hasAnyTerm(terms, OVERVIEW_TERMS) ||
     /(how many|how much|did we sell|units sold|what did we sell)/.test(normalized) ||
     /\b(20\d{2})\b/.test(normalized)
+  )
+}
+
+async function buildAdPerformanceTool(
+  context: DashboardRequestContext,
+  _message: string
+): Promise<AgentToolResult> {
+  void _message
+  const slice = await loadAdPerformanceSlice(context)
+  const topRows = compactRows(slice.rows, TOOL_PAYLOAD_CAPS.adPerfRows)
+
+  return withEvidence(
+    {
+      data: {
+        kpis: slice.kpis,
+        range: slice.range,
+        topAds: topRows,
+      },
+      label: "Ad performance",
+      name: "ad_performance",
+      summary: `${topRows.length} ads returned. Blended ROAS ${slice.kpis.blendedRoas.toFixed(2)}, total spend ${slice.kpis.totalSpend.toFixed(2)}.`,
+    },
+    {
+      caveats: topRows.length === 0
+        ? ["No ad-level data found for selected date range."]
+        : [],
+      kpis: {
+        blendedCpa: roundNumber(slice.kpis.blendedCpa, 2),
+        blendedRoas: roundNumber(slice.kpis.blendedRoas, 2),
+        totalImpressions: roundNumber(slice.kpis.totalImpressions, 0),
+        totalSpend: roundNumber(slice.kpis.totalSpend, 2),
+      },
+      range: slice.range,
+      topDrivers: summarizeTopDrivers({
+        rows: topRows,
+        cap: 3,
+        label: (row) => String((row as { adName?: string }).adName ?? "Unknown"),
+        score: (row) => asFiniteNumber((row as { spend?: number }).spend),
+      }),
+    }
   )
 }
 
@@ -797,6 +851,7 @@ const TOOL_BUILDERS: Record<
     message: string
   ) => Promise<AgentToolResult>
 > = {
+  ad_performance: buildAdPerformanceTool,
   anomaly_scan: buildAnomalyTool,
   data_freshness: buildFreshnessTool,
   email_performance: buildEmailTool,
@@ -814,6 +869,14 @@ export function getRelevantAgentTools(message: string): AgentToolName[] {
 
   if (hasAnyTerm(terms, PAID_MEDIA_TERMS)) {
     selected.add("paid_media_summary")
+  }
+
+  if (hasAnyTerm(terms, AD_PERF_TERMS)) {
+    selected.add("ad_performance")
+  }
+
+  if (/\b(best ad|top ad|worst ad|which ad|what ad|hook rate|video view)\b/.test(normalized)) {
+    selected.add("ad_performance")
   }
 
   if (hasAnyTerm(terms, INVENTORY_TERMS)) {
