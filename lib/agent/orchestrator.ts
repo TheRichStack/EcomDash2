@@ -8,6 +8,7 @@ import {
   AGENT_MAX_MESSAGE_CHARS,
   AGENT_MAX_PRESET_MESSAGE_CHARS,
   AGENT_MAX_PLAN_TOKENS,
+  AGENT_MAX_TOOL_COUNT,
   AGENT_PROMPT_HISTORY_ASSISTANT_CHARS,
   AGENT_PROMPT_HISTORY_SUMMARY_CHARS,
   AGENT_PROMPT_HISTORY_USER_CHARS,
@@ -46,6 +47,7 @@ import type {
   AgentAnomalySignal,
 } from "@/lib/agent/anomalies"
 import {
+  AGENT_TOOL_CATALOG,
   getRelevantAgentTools,
   isBusinessAnalysisPrompt,
   runAgentTools,
@@ -1332,10 +1334,11 @@ function resolvePresetContext(input: {
   })
 }
 
-function resolveToolNames(input: {
+async function resolveToolNames(input: {
   message: string
   presetId?: AgentPresetId
   turnKind: "direct" | "analysis"
+  llmSelector?: (message: string) => Promise<AgentToolName[]>
 }) {
   if (input.turnKind === "direct") {
     return [] as AgentToolName[]
@@ -1345,7 +1348,7 @@ function resolveToolNames(input: {
     return [...getAgentPreset(input.presetId).toolNames]
   }
 
-  return getRelevantAgentTools(input.message)
+  return getRelevantAgentTools(input.message, { llmSelector: input.llmSelector })
 }
 
 function isDeterministicRendererPreset(
@@ -4020,11 +4023,48 @@ export async function runAgentTurn(input: {
       : !requiresDateClarification && scopeResolution.assumptionNote
       ? `${normalizedAnalysisQuestion}\n\nUse this resolved time scope for analysis: ${scopeResolution.context.from} to ${scopeResolution.context.to}.`
       : normalizedAnalysisQuestion
-  const toolNames = resolveToolNames({
+  const llmToolSelector =
+    hasWorkspaceCredential && !input.presetId
+      ? async (msg: string): Promise<AgentToolName[]> => {
+          const resolved = await resolveProviderModelsIfNeeded()
+          const catalogJson = JSON.stringify(
+            AGENT_TOOL_CATALOG.map((t) => ({ name: t.name, description: t.description }))
+          )
+          const { data } = await completeJsonWithProvider<{ tools: string[] }>({
+            apiKey: resolved.apiKey,
+            provider: providerForRun,
+            model: routerModel,
+            systemPrompt: "You are a tool router. Return JSON only.",
+            userPrompt: [
+              "Select the tools needed to answer this question.",
+              `Available tools: ${catalogJson}`,
+              `Question: ${msg}`,
+              `Return JSON: { "tools": ["tool_name", ...] }`,
+              `Pick at most ${AGENT_MAX_TOOL_COUNT} tools. Pick only tools that are clearly relevant.`,
+              "If the question is conversational or needs no data, return an empty array.",
+            ].join("\n"),
+            maxTokens: 150,
+          })
+          const validNames = new Set(AGENT_TOOL_CATALOG.map((t) => t.name))
+          return (data.tools ?? [])
+            .filter((t): t is AgentToolName => validNames.has(t as AgentToolName))
+            .slice(0, AGENT_MAX_TOOL_COUNT)
+        }
+      : undefined
+
+  let toolSelectionSource: "llm" | "keyword" = "keyword"
+  const toolNames = await resolveToolNames({
     message: executionQuestion,
     presetId: input.presetId,
     turnKind:
       hasExplicitConfirmedOps || requiresDateClarification ? "direct" : turnPlan.kind,
+    llmSelector: llmToolSelector
+      ? async (msg) => {
+          const result = await llmToolSelector(msg)
+          toolSelectionSource = "llm"
+          return result
+        }
+      : undefined,
   })
   const toolResults =
     hasExplicitConfirmedOps || turnPlan.kind === "direct" || requiresDateClarification
@@ -4591,6 +4631,7 @@ export async function runAgentTurn(input: {
       runId: run.runId,
       usedTools: toolResults.map((tool) => tool.name),
       warnings,
+      tool_selection_source: toolSelectionSource,
     }
   } catch (error) {
     const errorMessage =

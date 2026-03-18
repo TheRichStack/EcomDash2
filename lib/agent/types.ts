@@ -169,6 +169,7 @@ export type AgentRunResult = {
   usedTools: string[]
   warnings: string[]
   requestedOps: string[]
+  tool_selection_source?: "llm" | "keyword"
 }
 
 export type AgentBrokerTokenPayload = {

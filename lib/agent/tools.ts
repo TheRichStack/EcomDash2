@@ -20,6 +20,26 @@ import {
 import type { AgentToolName, AgentToolResult } from "@/lib/agent/types"
 import type { DashboardRequestContext } from "@/types/dashboard"
 
+export type AgentToolCatalogItem = {
+  name: AgentToolName
+  description: string
+}
+
+export const AGENT_TOOL_CATALOG: AgentToolCatalogItem[] = [
+  { name: "ad_performance",    description: "Ad-level and adset-level metrics: impressions, clicks, spend, ROAS, CPA, video hook rate, view-through rate per ad." },
+  { name: "ad_segments",       description: "Ad performance broken down by country, device type, and audience segment across platforms." },
+  { name: "anomaly_scan",      description: "Detects unusual metric movements compared to the prior period across revenue, spend, and key KPIs." },
+  { name: "budget_vs_actual",  description: "Planned monthly budget vs actual spend by channel; pacing percentage and over/underspend." },
+  { name: "creative_performance", description: "Creative-level spend, ROAS, hook rate, and video completion metrics; best and worst performing creatives." },
+  { name: "data_freshness",    description: "Shows when each data source (Shopify, Meta, Google, TikTok, Klaviyo) was last synced." },
+  { name: "email_performance", description: "Email campaign and flow metrics: open rate, click rate, revenue per email, unsubscribes." },
+  { name: "inventory_risk",    description: "Inventory levels, days of stock remaining, and stockout risk per product and variant." },
+  { name: "order_analysis",    description: "Orders grouped by UTM source, acquisition channel, and country; new vs returning customer split and AOV." },
+  { name: "overview_summary",  description: "High-level business overview: total revenue, orders, ad spend, blended ROAS, and period-over-period changes." },
+  { name: "paid_media_summary", description: "Channel and campaign-level paid media: spend, impressions, ROAS, CPA across Meta, Google, TikTok." },
+  { name: "product_performance", description: "Product and variant-level sales, units sold, revenue, and gross margin over the selected period." },
+]
+
 function keywordSet(message: string) {
   return new Set(
     String(message ?? "")
@@ -1122,7 +1142,21 @@ const TOOL_BUILDERS: Record<
   traffic_conversion: buildTrafficConversionTool,
 }
 
-export function getRelevantAgentTools(message: string): AgentToolName[] {
+export async function getRelevantAgentTools(
+  message: string,
+  options?: { llmSelector?: (message: string) => Promise<AgentToolName[]> }
+): Promise<AgentToolName[]> {
+  if (options?.llmSelector) {
+    try {
+      const llmResult = await options.llmSelector(message)
+      if (llmResult.length > 0) {
+        return llmResult
+      }
+    } catch {
+      // LLM selector failed — fall through to keyword routing
+    }
+  }
+
   const terms = keywordSet(message)
   const normalized = message.toLowerCase()
   const selected = new Set<AgentToolName>()
