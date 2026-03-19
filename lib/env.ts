@@ -87,6 +87,18 @@ function resolveBackendSource() {
   return "turso" as const
 }
 
+function resolveEvidenceTier() {
+  const value = readFirstEnv(["ECOMDASH2_AGENT_EVIDENCE_TIER"], "compact")
+    .trim()
+    .toLowerCase()
+
+  if (value === "full") {
+    return "full" as const
+  }
+
+  return "compact" as const
+}
+
 const workspaceOptions = resolveWorkspaceOptions()
 const defaultWorkspaceId =
   readFirstEnv(["ECOMDASH2_DEFAULT_WORKSPACE_ID", "WORKSPACE_ID_DEFAULT"]) ||
@@ -143,6 +155,8 @@ export const env = {
       ["ECOMDASH2_AGENT_DATASET_ROW_LIMIT"],
       200
     ),
+    enableToolCache: readBooleanEnv(["ECOMDASH2_AGENT_ENABLE_TOOL_CACHE"], true),
+    evidenceTier: resolveEvidenceTier(),
     budgetUsdPerDay: readPositiveIntEnv(
       ["ECOMDASH2_AGENT_BUDGET_USD_PER_DAY"],
       5

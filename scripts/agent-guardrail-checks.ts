@@ -12,15 +12,26 @@ import {
 import { sanitizeAgentSqlQuery } from "@/lib/agent/broker"
 import { executeAgentRunLocally } from "@/lib/agent/executor"
 import {
+  resolveModelRequirementForTurnForTest,
+} from "@/lib/agent/orchestrator"
+import {
   buildDateClarificationPromptForTest,
+  buildPromptToolEvidenceEnvelopeForTest,
   buildPromptToolEvidencePayloadForTest,
+  serializeConversationHistoryForTest,
+} from "@/lib/agent/orchestration/prompt-builder"
+import {
+  buildToolResultsCacheSignatureForTest,
+  resolvePromptBudgetProfileForTest,
+  resolveToolResultsCacheTtlMsForTest,
+} from "@/lib/agent/orchestration/run-agent-turn"
+import {
   evaluateWorkerOpGuardrailsForTest,
   resolveConfirmationResumeSelectionForTest,
-  resolveModelRequirementForTurnForTest,
   resolvePendingWorkerPlanForTest,
-  serializeConversationHistoryForTest,
-} from "@/lib/agent/orchestrator"
+} from "@/lib/agent/orchestration/worker-guardrails"
 import { resetAgentPresetCachesForTests, listAgentPresets } from "@/lib/agent/presets"
+import type { AgentToolName } from "@/lib/agent/types"
 import { ECOMDASH2_TABLE_BOUNDARY } from "@/lib/db/boundary"
 import { env } from "@/lib/env"
 
@@ -548,6 +559,159 @@ function verifyEvidenceOnlyPromptShaping() {
   )
 }
 
+function verifyPromptBudgetCompaction() {
+  const toolsProfile = resolvePromptBudgetProfileForTest({ mode: "tools" })
+  const workerProfile = resolvePromptBudgetProfileForTest({ mode: "worker_plan" })
+
+  const oversizedInput = [
+    {
+      evidence: {
+        kpis: { revenue: 12345.67 },
+        rows: Array.from({ length: 40 }).map((_, index) => ({
+          label: `row-${index + 1}`,
+          value: index + 1,
+        })),
+      },
+      label: "Overview summary",
+      name: "overview_summary",
+      summary: "Signal ".repeat(220),
+    },
+    {
+      evidence: {
+        rows: Array.from({ length: 40 }).map((_, index) => ({
+          label: `campaign-${index + 1}`,
+          spend: index * 10,
+        })),
+      },
+      label: "Paid media summary",
+      name: "paid_media_summary",
+      summary: "Signal ".repeat(220),
+    },
+  ] as const
+
+  const compactEnvelope = buildPromptToolEvidenceEnvelopeForTest(
+    [...oversizedInput],
+    {
+      profile: toolsProfile,
+      tier: "compact",
+    }
+  )
+
+  assert(
+    compactEnvelope.metrics.postChars <= toolsProfile.maxTotalChars,
+    "Prompt budget compaction should cap total evidence payload chars."
+  )
+  for (const entry of compactEnvelope.toolEvidence) {
+    const perToolChars =
+      entry.summary.length + JSON.stringify(entry.evidence ?? null).length
+    assert(
+      perToolChars <=
+        toolsProfile.maxPerToolChars + toolsProfile.maxSummaryChars,
+      "Prompt budget compaction should cap per-tool payload size."
+    )
+  }
+
+  const workerEnvelope = buildPromptToolEvidenceEnvelopeForTest(
+    [...oversizedInput],
+    {
+      profile: workerProfile,
+      tier: "compact",
+    }
+  )
+
+  assert(
+    workerEnvelope.toolEvidence.every((entry) => entry.evidence === null),
+    "Worker-plan budget should enforce summary-only evidence."
+  )
+
+  console.log(
+    `[prompt-budget-compaction] toolsPost=${compactEnvelope.metrics.postChars}/${toolsProfile.maxTotalChars} dropped=${compactEnvelope.metrics.droppedEvidenceCount} workerSummaryOnly=${String(workerEnvelope.toolEvidence.every((entry) => entry.evidence === null))}`
+  )
+}
+
+function verifyToolCacheSignatureDeterminism() {
+  const baseInput = {
+    context: {
+      compare: "previous_period" as const,
+      from: "2026-03-01",
+      to: "2026-03-07",
+      workspaceId: "guardrail-check-workspace",
+    },
+    executionQuestion: "Show top products for last week",
+    toolNames: ["product_performance"] as AgentToolName[],
+  }
+
+  const signatureA = buildToolResultsCacheSignatureForTest(baseInput)
+  const signatureB = buildToolResultsCacheSignatureForTest(baseInput)
+  const changedMessageSensitive = buildToolResultsCacheSignatureForTest({
+    ...baseInput,
+    executionQuestion: "Show top products for last month",
+  })
+  const nonSensitiveA = buildToolResultsCacheSignatureForTest({
+    ...baseInput,
+    executionQuestion: "How did we do?",
+    toolNames: ["overview_summary"] as AgentToolName[],
+  })
+  const nonSensitiveB = buildToolResultsCacheSignatureForTest({
+    ...baseInput,
+    executionQuestion: "How did we do this week?",
+    toolNames: ["overview_summary"] as AgentToolName[],
+  })
+
+  assert.equal(
+    signatureA.signature,
+    signatureB.signature,
+    "Tool cache signature should be deterministic for identical input."
+  )
+  assert.notEqual(
+    signatureA.signature,
+    changedMessageSensitive.signature,
+    "Message-sensitive tool cache signature should vary with question text."
+  )
+  assert.equal(
+    nonSensitiveA.signature,
+    nonSensitiveB.signature,
+    "Non-sensitive tool cache signature should ignore question text changes."
+  )
+
+  console.log(
+    `[tool-cache-signature] deterministic=${String(signatureA.signature === signatureB.signature)} messageSensitiveChanges=${String(signatureA.signature !== changedMessageSensitive.signature)} nonSensitiveStable=${String(nonSensitiveA.signature === nonSensitiveB.signature)}`
+  )
+}
+
+function verifyToolCacheTtlPolicy() {
+  const freshnessTtl = resolveToolResultsCacheTtlMsForTest({
+    toolNames: ["data_freshness"],
+  })
+  const runbookTtl = resolveToolResultsCacheTtlMsForTest({
+    presetId: "daily-trading-pulse",
+    toolNames: ["overview_summary"],
+  })
+  const freeformTtl = resolveToolResultsCacheTtlMsForTest({
+    toolNames: ["overview_summary"],
+  })
+
+  assert.equal(
+    freshnessTtl,
+    2 * 60_000,
+    "data_freshness tool cache TTL should be 2 minutes."
+  )
+  assert.equal(
+    runbookTtl,
+    6 * 60 * 60_000,
+    "Runbook cache TTL should be 6 hours."
+  )
+  assert.equal(
+    freeformTtl,
+    10 * 60_000,
+    "Free-form tools cache TTL should be 10 minutes."
+  )
+
+  console.log(
+    `[tool-cache-ttl] freshnessMs=${freshnessTtl} runbookMs=${runbookTtl} freeformMs=${freeformTtl}`
+  )
+}
+
 function verifyDateClarificationDeterminism() {
   const question = "Was revenue up?"
   const options = [
@@ -716,6 +880,9 @@ async function main() {
   verifyConfirmationResumeSelectionDeterminism()
   verifyHistoryBounding()
   verifyEvidenceOnlyPromptShaping()
+  verifyPromptBudgetCompaction()
+  verifyToolCacheSignatureDeterminism()
+  verifyToolCacheTtlPolicy()
   verifyDateClarificationDeterminism()
   verifyDeterministicNoKeyModelRequirementRouting()
   verifyWorkerOpSetMismatchGuardrails()

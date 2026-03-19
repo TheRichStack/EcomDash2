@@ -141,6 +141,18 @@ export type AgentToolResult = {
   evidence?: Record<string, unknown>
 }
 
+export type EvidencePackTier = "compact" | "full"
+
+export type PromptBudgetMode = "direct" | "tools" | "worker_plan"
+
+export type PromptBudgetProfile = {
+  mode: PromptBudgetMode
+  maxTotalChars: number
+  maxPerToolChars: number
+  maxSummaryChars: number
+  includeEvidence: boolean
+}
+
 export type AgentChartKind = "bar" | "line"
 
 export type AgentChartValueFormat = "currency" | "number" | "percent"

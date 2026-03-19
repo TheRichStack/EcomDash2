@@ -18,7 +18,9 @@
     "jobs:backfill": "tsx scripts/jobs/backfill.ts",
     "jobs:reconcile": "tsx scripts/jobs/reconcile.ts",
     "jobs:contracts:refresh": "tsx scripts/jobs/contracts-refresh.ts",
-    "agent:verify": "tsx --tsconfig tsconfig.scripts.json scripts/agent-guardrail-checks.ts"
+    "agent:verify": "tsx --tsconfig tsconfig.scripts.json scripts/agent-guardrail-checks.ts",
+    "agent:context:verify": "tsx --tsconfig tsconfig.scripts.json scripts/agent-context-verify.ts",
+    "agent:context:ratchet": "tsx --tsconfig tsconfig.scripts.json scripts/agent-context-verify.ts --ratchet-report"
   },
   "dependencies": {
     "@libsql/client": "^0.15.15",

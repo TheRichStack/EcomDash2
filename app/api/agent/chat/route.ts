@@ -1,5 +1,5 @@
 import { AGENT_EVENT_CONTENT_TYPE } from "@/lib/agent/constants"
-import { runAgentTurn } from "@/lib/agent/orchestrator"
+import { runAgentTurn } from "@/lib/agent/orchestration/run-agent-turn"
 import { getAgentPreset } from "@/lib/agent/presets"
 import { loadWorkspaceAgentSettings } from "@/lib/agent/settings"
 import type { AgentPresetId } from "@/lib/agent/types"

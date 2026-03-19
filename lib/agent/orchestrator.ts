@@ -1,4 +1,5 @@
 import "server-only"
+import { createHash } from "node:crypto"
 
 import { env } from "@/lib/env"
 import {
@@ -10,6 +11,10 @@ import {
   AGENT_MAX_PLAN_TOKENS,
   AGENT_MAX_TOOL_COUNT,
   AGENT_PROMPT_HISTORY_ASSISTANT_CHARS,
+  AGENT_PROMPT_EVIDENCE_PER_TOOL_CHARS_TOOLS,
+  AGENT_PROMPT_EVIDENCE_PER_TOOL_CHARS_WORKER_PLAN,
+  AGENT_PROMPT_EVIDENCE_TOTAL_CHARS_TOOLS,
+  AGENT_PROMPT_EVIDENCE_TOTAL_CHARS_WORKER_PLAN,
   AGENT_PROMPT_HISTORY_SUMMARY_CHARS,
   AGENT_PROMPT_HISTORY_USER_CHARS,
   AGENT_PROMPT_TOOL_SUMMARY_CHARS,
@@ -18,6 +23,18 @@ import { createAgentBrokerToken } from "@/lib/agent/broker"
 import { buildAgentCharts } from "@/lib/agent/charts"
 import { buildAgentSystemPrompt } from "@/lib/agent/context"
 import { executeAgentRun } from "@/lib/agent/executor"
+import {
+  getPendingDateClarification as getPendingDateClarificationFromScopeModule,
+  isDateScopeOnlyPrompt as isDateScopeOnlyPromptFromScopeModule,
+  monthShortYearDateRange as monthShortYearDateRangeFromScopeModule,
+  normalizeMonthShortYearQuestion as normalizeMonthShortYearQuestionFromScopeModule,
+  resolveScopeForTurn as resolveScopeForTurnFromScopeModule,
+  resolveTurnPlan as resolveTurnPlanFromScopeModule,
+} from "@/lib/agent/orchestration/scope-resolution"
+import type {
+  DateClarificationOption,
+  ScopeResolution,
+} from "@/lib/agent/orchestration/scope-resolution"
 import { buildUsageSegment, buildUsageSummary } from "@/lib/agent/pricing"
 import {
   completeJsonWithProvider,
@@ -36,6 +53,7 @@ import {
   createAgentRun,
   finishAgentRun,
   getAgentConversationById,
+  getLatestAgentArtifactByLabel,
   getLatestPendingWorkerPlan,
   getAgentWorkspaceUsageTotals,
   listAgentMessages,
@@ -49,11 +67,12 @@ import type {
 import {
   AGENT_TOOL_CATALOG,
   getRelevantAgentTools,
-  isBusinessAnalysisPrompt,
   runAgentTools,
 } from "@/lib/agent/tools"
 import type {
   AgentExecutionMode,
+  EvidencePackTier,
+  PromptBudgetProfile,
   AgentPresetId,
   AgentRunStatus,
   AgentToolName,
@@ -93,21 +112,31 @@ type PendingWorkerPlan = {
   why: string | null
 }
 
-type DirectTurnPlan = {
-  kind: "direct" | "analysis"
-  warnings: string[]
-}
-
-export type DateClarificationOption = {
-  label: string
-  message: string
-}
-
 type PromptToolEvidence = {
   evidence: Record<string, unknown> | null
   label: string
   name: string
   summary: string
+}
+
+type PromptToolEvidenceEnvelope = {
+  toolEvidence: PromptToolEvidence[]
+  metrics: {
+    droppedEvidenceCount: number
+    postChars: number
+    preChars: number
+  }
+  warnings: string[]
+}
+
+type ToolResultsCachePayload = {
+  context: Pick<DashboardRequestContext, "compare" | "from" | "to" | "workspaceId">
+  executionQuestionFingerprint: string | null
+  expiresAt: string
+  presetId: AgentPresetId | null
+  signature: string
+  toolNames: AgentToolName[]
+  toolResults: AgentToolResult[]
 }
 
 type ModelRequirementDecision = {
@@ -137,25 +166,6 @@ type WorkerOpGuardrailEvaluation = {
   unconfirmedOps: string[]
 }
 
-type ParsedContextOverride = {
-  context: DashboardRequestContext
-  confidence: "high" | "medium"
-  source: "explicit" | "inferred"
-  warning: string | null
-  assumptionNote?: string | null
-}
-
-type ScopeResolution = {
-  context: DashboardRequestContext
-  confidence: "high" | "medium" | "low"
-  source: "explicit" | "inferred" | "none"
-  warning: string | null
-  assumptionNote: string | null
-  needsClarification: boolean
-  clarificationQuestion?: string
-  clarifyingOptions?: DateClarificationOption[]
-}
-
 type AnswerAuditFreshnessStatus = "fresh" | "stale" | "unknown"
 
 type AnswerAudit = {
@@ -180,79 +190,6 @@ type AnswerAudit = {
     notes: string[]
   }
 }
-
-const GREETING_TERMS = new Set([
-  "ello",
-  "good",
-  "hello",
-  "hey",
-  "hi",
-  "hiya",
-  "morning",
-])
-
-const COURTESY_TERMS = new Set([
-  "appreciate",
-  "cheers",
-  "thank",
-  "thanks",
-  "thx",
-])
-
-const EVENT_SCOPE_TERMS = new Set([
-  "bfcm",
-  "black friday",
-  "cyber monday",
-])
-
-const DATE_SCOPE_ONLY_TERMS = new Set([
-  "apr",
-  "april",
-  "aug",
-  "august",
-  "calendar",
-  "current",
-  "dashboard",
-  "date",
-  "day",
-  "days",
-  "dec",
-  "december",
-  "entire",
-  "feb",
-  "february",
-  "for",
-  "full",
-  "jan",
-  "january",
-  "jul",
-  "july",
-  "jun",
-  "june",
-  "last",
-  "mar",
-  "march",
-  "may",
-  "month",
-  "nov",
-  "november",
-  "oct",
-  "october",
-  "please",
-  "question",
-  "range",
-  "selected",
-  "sep",
-  "sept",
-  "september",
-  "the",
-  "this",
-  "today",
-  "use",
-  "week",
-  "weeks",
-  "yesterday",
-])
 
 const DETERMINISTIC_RENDERER_PRESET_IDS = new Set<AgentPresetId>([
   "anomaly-and-issue-scan",
@@ -280,6 +217,39 @@ const AGENT_TOOL_NAME_SET = new Set<AgentToolName>([
   "anomaly_scan",
 ])
 
+const MESSAGE_SENSITIVE_TOOL_NAMES = new Set<AgentToolName>([
+  "product_performance",
+])
+
+const TOOL_RESULTS_CACHE_ARTIFACT_TYPE = "tool_results_cache"
+
+const PROMPT_BUDGET_PROFILE_BY_MODE: Record<
+  "direct" | "tools" | "worker_plan",
+  PromptBudgetProfile
+> = {
+  direct: {
+    includeEvidence: false,
+    maxPerToolChars: 0,
+    maxSummaryChars: AGENT_PROMPT_TOOL_SUMMARY_CHARS,
+    maxTotalChars: 0,
+    mode: "direct",
+  },
+  tools: {
+    includeEvidence: true,
+    maxPerToolChars: AGENT_PROMPT_EVIDENCE_PER_TOOL_CHARS_TOOLS,
+    maxSummaryChars: AGENT_PROMPT_TOOL_SUMMARY_CHARS,
+    maxTotalChars: AGENT_PROMPT_EVIDENCE_TOTAL_CHARS_TOOLS,
+    mode: "tools",
+  },
+  worker_plan: {
+    includeEvidence: false,
+    maxPerToolChars: AGENT_PROMPT_EVIDENCE_PER_TOOL_CHARS_WORKER_PLAN,
+    maxSummaryChars: AGENT_PROMPT_TOOL_SUMMARY_CHARS,
+    maxTotalChars: AGENT_PROMPT_EVIDENCE_TOTAL_CHARS_WORKER_PLAN,
+    mode: "worker_plan",
+  },
+}
+
 function isAgentToolName(value: string): value is AgentToolName {
   return AGENT_TOOL_NAME_SET.has(value as AgentToolName)
 }
@@ -299,6 +269,121 @@ function shouldUseWorker(question: string, toolNames: string[]) {
     "script",
     "why",
   ].some((token) => normalized.includes(token))
+}
+
+function normalizePromptFingerprint(value: string) {
+  return String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+}
+
+function hashText(value: string) {
+  return createHash("sha1").update(value).digest("hex")
+}
+
+function toolCacheQuestionFingerprint(input: {
+  executionQuestion: string
+  toolNames: AgentToolName[]
+}) {
+  const requiresMessageFingerprint = input.toolNames.some((toolName) =>
+    MESSAGE_SENSITIVE_TOOL_NAMES.has(toolName)
+  )
+
+  if (!requiresMessageFingerprint) {
+    return null
+  }
+
+  return hashText(normalizePromptFingerprint(input.executionQuestion))
+}
+
+export function buildToolResultsCacheSignatureForTest(input: {
+  context: Pick<DashboardRequestContext, "compare" | "from" | "to" | "workspaceId">
+  executionQuestion: string
+  presetId?: AgentPresetId
+  toolNames: AgentToolName[]
+}) {
+  const sortedToolNames = [...input.toolNames].sort()
+  const questionFingerprint = toolCacheQuestionFingerprint({
+    executionQuestion: input.executionQuestion,
+    toolNames: sortedToolNames,
+  })
+  const signatureSource = JSON.stringify({
+    compare: input.context.compare,
+    from: input.context.from,
+    presetId: input.presetId ?? null,
+    questionFingerprint,
+    to: input.context.to,
+    toolNames: sortedToolNames,
+    workspaceId: input.context.workspaceId,
+  })
+
+  return {
+    questionFingerprint,
+    signature: hashText(signatureSource),
+    sortedToolNames,
+  }
+}
+
+export function resolveToolResultsCacheTtlMsForTest(input: {
+  presetId?: AgentPresetId
+  toolNames: AgentToolName[]
+}) {
+  if (input.toolNames.includes("data_freshness")) {
+    return 2 * 60_000
+  }
+
+  if (input.presetId) {
+    return 6 * 60 * 60_000
+  }
+
+  return 10 * 60_000
+}
+
+export function resolvePromptBudgetProfileForTest(input: {
+  mode: "direct" | "tools" | "worker_plan"
+}) {
+  return PROMPT_BUDGET_PROFILE_BY_MODE[input.mode]
+}
+
+function parseCachedToolResults(value: unknown): AgentToolResult[] | null {
+  if (!Array.isArray(value)) {
+    return null
+  }
+
+  const parsed: AgentToolResult[] = []
+
+  for (const entry of value) {
+    const record = asRecord(entry)
+    if (!record) {
+      return null
+    }
+
+    const name = String(record.name ?? "").trim()
+    const label = String(record.label ?? "").trim()
+    const summary = String(record.summary ?? "").trim()
+    const data = asRecord(record.data)
+
+    if (!name || !label || !summary || !data || !isAgentToolName(name)) {
+      return null
+    }
+
+    const evidence = asRecord(record.evidence)
+    parsed.push({
+      data,
+      evidence: evidence ?? undefined,
+      label,
+      name,
+      summary,
+    })
+  }
+
+  return parsed
+}
+
+function parseIsoTimestampMs(value: string) {
+  const millis = Date.parse(value)
+  return Number.isFinite(millis) ? millis : null
 }
 
 function normalizeOpValues(input: unknown): string[] {
@@ -589,287 +674,8 @@ function buildBlockedAssistantReply(reason: string) {
   return `I couldn't execute that request.\n\nBlocked: ${reason}`
 }
 
-function tokenizeMessage(message: string) {
-  return String(message ?? "")
-    .toLowerCase()
-    .split(/[^a-z0-9]+/)
-    .filter(Boolean)
-}
-
-const SPECIFIC_DAY_MONTH_MAP: Record<string, { index: number; label: string }> = {
-  jan: { index: 0, label: "January" },
-  january: { index: 0, label: "January" },
-  feb: { index: 1, label: "February" },
-  february: { index: 1, label: "February" },
-  mar: { index: 2, label: "March" },
-  march: { index: 2, label: "March" },
-  apr: { index: 3, label: "April" },
-  april: { index: 3, label: "April" },
-  may: { index: 4, label: "May" },
-  jun: { index: 5, label: "June" },
-  june: { index: 5, label: "June" },
-  jul: { index: 6, label: "July" },
-  july: { index: 6, label: "July" },
-  aug: { index: 7, label: "August" },
-  august: { index: 7, label: "August" },
-  sep: { index: 8, label: "September" },
-  sept: { index: 8, label: "September" },
-  september: { index: 8, label: "September" },
-  oct: { index: 9, label: "October" },
-  october: { index: 9, label: "October" },
-  nov: { index: 10, label: "November" },
-  november: { index: 10, label: "November" },
-  dec: { index: 11, label: "December" },
-  december: { index: 11, label: "December" },
-}
-
-const MONTH_NAME_PAT =
-  "jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?"
-
-// Matches "November the 16th, 2025", "Nov 16 2025", "November 16, 2025"
-const RE_MONTH_DAY_YEAR = new RegExp(
-  `\\b(${MONTH_NAME_PAT})\\.?\\s+(?:the\\s+)?(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(20\\d{2})\\b`,
-  "i"
-)
-
-// Matches "16th of November 2025", "16th November 2025", "16 November 2025"
-const RE_DAY_MONTH_YEAR = new RegExp(
-  `\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+(?:of\\s+)?(${MONTH_NAME_PAT})\\.?\\s+(20\\d{2})\\b`,
-  "i"
-)
-
-// Matches ISO "2025-11-16"
-const RE_ISO_DATE = /\b(20\d{2})-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/
-
-function specificDayDateRange(message: string): { isoDate: string; label: string } | null {
-  const normalized = String(message ?? "").toLowerCase()
-
-  const m1 = normalized.match(RE_MONTH_DAY_YEAR)
-  if (m1) {
-    const monthKey = String(m1[1] ?? "").replace(/\.$/, "")
-    const month = SPECIFIC_DAY_MONTH_MAP[monthKey]
-    const day = Number(m1[2])
-    const year = Number(m1[3])
-    if (month !== undefined && day >= 1 && day <= 31 && Number.isInteger(year)) {
-      const isoDate = new Date(Date.UTC(year, month.index, day)).toISOString().slice(0, 10)
-      return { isoDate, label: `${month.label} ${day}, ${year}` }
-    }
-  }
-
-  const m2 = normalized.match(RE_DAY_MONTH_YEAR)
-  if (m2) {
-    const day = Number(m2[1])
-    const monthKey = String(m2[2] ?? "").replace(/\.$/, "")
-    const month = SPECIFIC_DAY_MONTH_MAP[monthKey]
-    const year = Number(m2[3])
-    if (month !== undefined && day >= 1 && day <= 31 && Number.isInteger(year)) {
-      const isoDate = new Date(Date.UTC(year, month.index, day)).toISOString().slice(0, 10)
-      return { isoDate, label: `${month.label} ${day}, ${year}` }
-    }
-  }
-
-  const mIso = normalized.match(RE_ISO_DATE)
-  if (mIso) {
-    const isoDate = `${mIso[1]}-${mIso[2]}-${mIso[3]}`
-    return { isoDate, label: isoDate }
-  }
-
-  return null
-}
-
-function monthYearDateRange(message: string) {
-  const normalized = String(message ?? "").toLowerCase()
-  const match = normalized.match(
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(20\d{2})\b/
-  )
-
-  if (!match) {
-    return null
-  }
-
-  const monthMap: Record<string, { index: number; label: string }> = {
-    jan: { index: 0, label: "January" },
-    january: { index: 0, label: "January" },
-    feb: { index: 1, label: "February" },
-    february: { index: 1, label: "February" },
-    mar: { index: 2, label: "March" },
-    march: { index: 2, label: "March" },
-    apr: { index: 3, label: "April" },
-    april: { index: 3, label: "April" },
-    may: { index: 4, label: "May" },
-    jun: { index: 5, label: "June" },
-    june: { index: 5, label: "June" },
-    jul: { index: 6, label: "July" },
-    july: { index: 6, label: "July" },
-    aug: { index: 7, label: "August" },
-    august: { index: 7, label: "August" },
-    sep: { index: 8, label: "September" },
-    sept: { index: 8, label: "September" },
-    september: { index: 8, label: "September" },
-    oct: { index: 9, label: "October" },
-    october: { index: 9, label: "October" },
-    nov: { index: 10, label: "November" },
-    november: { index: 10, label: "November" },
-    dec: { index: 11, label: "December" },
-    december: { index: 11, label: "December" },
-  }
-  const monthKey = match[1].replace(/\.$/, "")
-  const month = monthMap[monthKey]
-  const year = Number(match[2])
-
-  if (!Number.isInteger(year) || month === undefined) {
-    return null
-  }
-
-  const from = new Date(Date.UTC(year, month.index, 1)).toISOString().slice(0, 10)
-  const to = new Date(Date.UTC(year, month.index + 1, 0)).toISOString().slice(0, 10)
-
-  return {
-    from,
-    label: `${month.label} ${year}`,
-    to,
-  }
-}
-
-function monthShortYearDateRange(message: string) {
-  const normalized = String(message ?? "").toLowerCase()
-  const match = normalized.match(
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{2})\b/
-  )
-
-  if (!match) {
-    return null
-  }
-
-  const token = match[2]
-
-  if (/^\d{4}$/.test(token)) {
-    return null
-  }
-
-  const year = 2000 + Number(token)
-
-  if (!Number.isInteger(year) || year < 2000 || year > 2099) {
-    return null
-  }
-
-  return monthYearDateRange(`${match[1]} ${year}`)
-}
-
-function normalizeMonthShortYearQuestion(question: string) {
-  return String(question ?? "").replace(
-    /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{2})\b/i,
-    (_whole, month, yy) => `${month} 20${yy} (full month)`
-  )
-}
-
-function blackFridayIsoDate(year: number) {
-  const date = new Date(Date.UTC(year, 10, 30))
-
-  while (date.getUTCDay() !== 5) {
-    date.setUTCDate(date.getUTCDate() - 1)
-  }
-
-  return toIsoDate(date)
-}
-
-function resolveEventScope(message: string) {
-  const normalized = String(message ?? "").trim().toLowerCase()
-
-  if (!normalized) {
-    return null
-  }
-
-  if (![...EVENT_SCOPE_TERMS].some((term) => normalized.includes(term))) {
-    return null
-  }
-
-  const currentYear = new Date().getUTCFullYear()
-  const explicitYearMatch = normalized.match(/\b(20\d{2})\b/)
-  const explicitYear = explicitYearMatch ? Number(explicitYearMatch[1]) : null
-  const year = explicitYear
-    ? explicitYear
-    : normalized.includes("last year")
-      ? currentYear - 1
-      : normalized.includes("this year")
-        ? currentYear
-        : null
-
-  if (!year) {
-    return null
-  }
-
-  const blackFriday = blackFridayIsoDate(year)
-  const cyberMonday = addUtcDays(blackFriday, 3)
-  const bfcmFrom = addUtcDays(blackFriday, -3)
-  const fullMonth = monthYearDateRange(`november ${year}`)
-
-  if (normalized.includes("cyber monday")) {
-    return {
-      from: cyberMonday,
-      to: cyberMonday,
-      label: `Cyber Monday ${year}`,
-      confidence: "high" as const,
-      assumptionNote: null,
-      source: "explicit" as const,
-    }
-  }
-
-  if (
-    normalized.includes("single day") ||
-    normalized.includes("black friday day")
-  ) {
-    return {
-      from: blackFriday,
-      to: blackFriday,
-      label: `Black Friday day (${blackFriday})`,
-      confidence: "high" as const,
-      assumptionNote: null,
-      source: "explicit" as const,
-    }
-  }
-
-  if (!fullMonth) {
-    return null
-  }
-
-  // Use BFCM window by default for event phrases unless user asks for full month.
-  return {
-    from: bfcmFrom,
-    to: cyberMonday,
-    label: `BFCM window ${year} (${bfcmFrom} to ${cyberMonday})`,
-    confidence: "medium" as const,
-    assumptionNote: `Interpreted "${normalized}" as the BFCM window (${bfcmFrom} to ${cyberMonday}).`,
-    source: "inferred" as const,
-  }
-}
-
 function toIsoDate(date: Date) {
   return date.toISOString().slice(0, 10)
-}
-
-function addUtcDays(isoDate: string, days: number) {
-  const shifted = new Date(`${isoDate}T00:00:00.000Z`)
-  shifted.setUTCDate(shifted.getUTCDate() + days)
-  return toIsoDate(shifted)
-}
-
-function startOfIsoMonth(isoDate: string) {
-  const shifted = new Date(`${isoDate}T00:00:00.000Z`)
-  shifted.setUTCDate(1)
-  return toIsoDate(shifted)
-}
-
-function endOfIsoMonth(isoDate: string) {
-  const shifted = new Date(`${isoDate}T00:00:00.000Z`)
-  shifted.setUTCMonth(shifted.getUTCMonth() + 1, 0)
-  return toIsoDate(shifted)
-}
-
-function shiftIsoDateByMonths(isoDate: string, months: number) {
-  const shifted = new Date(`${isoDate}T00:00:00.000Z`)
-  shifted.setUTCMonth(shifted.getUTCMonth() + months)
-  return toIsoDate(shifted)
 }
 
 function startOfUtcDayIso(date = new Date()) {
@@ -907,423 +713,6 @@ async function assertWorkspaceBudgetAvailable(workspaceId: string) {
     throw new Error(
       `Ask AI monthly budget reached. Estimated spend this month is $${monthlyUsage.estimatedCostUsd.toFixed(2)} against a $${monthlyBudget.toFixed(2)} cap.`
     )
-  }
-}
-
-function parseContextOverride(
-  baseContext: DashboardRequestContext,
-  message: string
-): ParsedContextOverride | null {
-  const normalized = String(message ?? "").trim().toLowerCase()
-
-  if (!normalized) {
-    return null
-  }
-
-  if (
-    normalized.includes("dashboard range") ||
-    normalized.includes("current range") ||
-    normalized.includes("selected range")
-  ) {
-    return {
-      context: baseContext,
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: dashboard selection (${baseContext.from} to ${baseContext.to}).`,
-      assumptionNote: null,
-    }
-  }
-
-  const explicitMonth = monthYearDateRange(normalized)
-
-  if (explicitMonth) {
-    return {
-      context: {
-        ...baseContext,
-        from: explicitMonth.from,
-        to: explicitMonth.to,
-      },
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: ${explicitMonth.label} (${explicitMonth.from} to ${explicitMonth.to}).`,
-      assumptionNote: null,
-    }
-  }
-
-  const inferredMonth = monthShortYearDateRange(normalized)
-
-  if (inferredMonth) {
-    return {
-      context: {
-        ...baseContext,
-        from: inferredMonth.from,
-        to: inferredMonth.to,
-      },
-      confidence: "high",
-      source: "inferred",
-      warning: `Using inferred date range: ${inferredMonth.label} (${inferredMonth.from} to ${inferredMonth.to}).`,
-      assumptionNote: `Interpreted "${normalized}" as ${inferredMonth.label}.`,
-    }
-  }
-
-  const specificDay = specificDayDateRange(normalized)
-
-  if (specificDay) {
-    return {
-      context: {
-        ...baseContext,
-        from: specificDay.isoDate,
-        to: specificDay.isoDate,
-      },
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: ${specificDay.label} (${specificDay.isoDate}).`,
-      assumptionNote: null,
-    }
-  }
-
-  const eventScope = resolveEventScope(normalized)
-
-  if (eventScope) {
-    return {
-      context: {
-        ...baseContext,
-        from: eventScope.from,
-        to: eventScope.to,
-      },
-      confidence: eventScope.confidence,
-      source: eventScope.source,
-      warning: `Using inferred date range: ${eventScope.label}.`,
-      assumptionNote: eventScope.assumptionNote,
-    }
-  }
-
-  const today = toIsoDate(new Date())
-
-  if (/\byesterday\b/.test(normalized)) {
-    const yesterday = addUtcDays(today, -1)
-    return {
-      context: {
-        ...baseContext,
-        from: yesterday,
-        to: yesterday,
-      },
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: yesterday (${yesterday}).`,
-      assumptionNote: null,
-    }
-  }
-
-  if (/\btoday\b/.test(normalized)) {
-    return {
-      context: {
-        ...baseContext,
-        from: today,
-        to: today,
-      },
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: today (${today}).`,
-      assumptionNote: null,
-    }
-  }
-
-  const daysMatch = normalized.match(/\b(?:last|past)\s+(\d+)\s+days?\b/)
-  const weeksMatch = normalized.match(/\b(?:last|past)\s+(\d+)\s+weeks?\b/)
-
-  if (daysMatch || weeksMatch) {
-    const rawDays = daysMatch
-      ? Number(daysMatch[1])
-      : Number(weeksMatch![1]) * 7
-    const days = Math.min(rawDays, 365)
-    const from = addUtcDays(today, -(days - 1))
-    return {
-      context: {
-        ...baseContext,
-        from,
-        to: today,
-      },
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: last ${days} days (${from} to ${today}).`,
-      assumptionNote: null,
-    }
-  }
-
-  if (/\bthis month\b/.test(normalized)) {
-    const from = startOfIsoMonth(today)
-    return {
-      context: {
-        ...baseContext,
-        from,
-        to: today,
-      },
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: this month (${from} to ${today}).`,
-      assumptionNote: null,
-    }
-  }
-
-  if (/\blast month\b/.test(normalized)) {
-    const previousMonthAnchor = shiftIsoDateByMonths(today, -1)
-    const from = startOfIsoMonth(previousMonthAnchor)
-    const to = endOfIsoMonth(previousMonthAnchor)
-    return {
-      context: {
-        ...baseContext,
-        from,
-        to,
-      },
-      confidence: "high",
-      source: "explicit",
-      warning: `Using requested date range: last month (${from} to ${to}).`,
-      assumptionNote: null,
-    }
-  }
-
-  return null
-}
-
-function hasDateScopeHint(message: string) {
-  const normalized = String(message ?? "").trim().toLowerCase()
-
-  if (!normalized) {
-    return false
-  }
-
-  return (
-    normalized.includes("dashboard range") ||
-    normalized.includes("current range") ||
-    normalized.includes("selected range") ||
-    /\btoday\b/.test(normalized) ||
-    /\byesterday\b/.test(normalized) ||
-    /\b(?:last|past)\s+\d+\s+(?:days?|weeks?)\b/.test(normalized) ||
-    /\bthis month\b/.test(normalized) ||
-    /\blast month\b/.test(normalized) ||
-    monthYearDateRange(normalized) !== null ||
-    monthShortYearDateRange(normalized) !== null ||
-    specificDayDateRange(normalized) !== null ||
-    resolveEventScope(normalized) !== null
-  )
-}
-
-function isDateScopeOnlyPrompt(message: string) {
-  const normalized = String(message ?? "").trim().toLowerCase()
-
-  if (!normalized) {
-    return false
-  }
-
-  if (!hasDateScopeHint(normalized)) {
-    return false
-  }
-
-  const tokens = tokenizeMessage(normalized)
-
-  if (tokens.length === 0) {
-    return false
-  }
-
-  return tokens.every(
-    (token) => DATE_SCOPE_ONLY_TERMS.has(token) || /^\d{1,4}$/.test(token)
-  )
-}
-
-function getPendingDateClarification(
-  messages: Awaited<ReturnType<typeof listAgentMessages>>
-) {
-  const lastAssistant = [...messages]
-    .reverse()
-    .find((message) => message.role === "assistant")
-
-  const question = String(
-    lastAssistant?.metadata.dateClarificationQuestion ?? ""
-  ).trim()
-
-  return question ? question : null
-}
-
-function buildDateClarificationOptions(
-  question: string,
-  context: DashboardRequestContext
-): DateClarificationOption[] {
-  const normalized = question.toLowerCase()
-  const currentYear = new Date().getUTCFullYear()
-  const explicitYear = normalized.match(/\b(20\d{2})\b/)
-  const scopedYear = explicitYear
-    ? Number(explicitYear[1])
-    : normalized.includes("last year")
-      ? currentYear - 1
-      : normalized.includes("this year")
-        ? currentYear
-        : null
-
-  if (
-    scopedYear &&
-    [...EVENT_SCOPE_TERMS].some((term) => normalized.includes(term))
-  ) {
-    const blackFriday = blackFridayIsoDate(scopedYear)
-    const cyberMonday = addUtcDays(blackFriday, 3)
-    const bfcmFrom = addUtcDays(blackFriday, -3)
-    const november = monthYearDateRange(`november ${scopedYear}`)
-
-    return [
-      {
-        label: "Black Friday day",
-        message: `Use ${blackFriday} to ${blackFriday} for this question: ${question}`,
-      },
-      {
-        label: "BFCM window",
-        message: `Use ${bfcmFrom} to ${cyberMonday} for this question: ${question}`,
-      },
-      {
-        label: `Full November ${scopedYear}`,
-        message: november
-          ? `Use ${november.from} to ${november.to} for this question: ${question}`
-          : `Use November ${scopedYear} for this question: ${question}`,
-      },
-    ]
-  }
-
-  return [
-    {
-      label: "Last 7 days",
-      message: `Use the last 7 days for this question: ${question}`,
-    },
-    {
-      label: "Last 30 days",
-      message: `Use the last 30 days for this question: ${question}`,
-    },
-    {
-      label: "Last 90 days",
-      message: `Use the last 90 days for this question: ${question}`,
-    },
-    {
-      label: "This month",
-      message: `Use this month for this question: ${question}`,
-    },
-    {
-      label: "Last month",
-      message: `Use last month for this question: ${question}`,
-    },
-    {
-      label: "Custom range",
-      message: `Use ${context.from} to ${context.to} for this question: ${question}`,
-    },
-  ]
-}
-
-function resolveScopeForTurn(input: {
-  context: DashboardRequestContext
-  question: string
-  scopeSignal: string
-  turnKind: "direct" | "analysis"
-}) {
-  if (input.turnKind === "direct") {
-    return {
-      context: input.context,
-      confidence: "high",
-      source: "none",
-      warning: null,
-      assumptionNote: null,
-      needsClarification: false,
-    } satisfies ScopeResolution
-  }
-
-  const override = parseContextOverride(input.context, input.scopeSignal)
-
-  if (override) {
-    return {
-      context: override.context,
-      confidence: override.confidence,
-      source: override.source,
-      warning: override.warning,
-      assumptionNote: override.assumptionNote ?? null,
-      needsClarification: false,
-    } satisfies ScopeResolution
-  }
-
-  if (!isBusinessAnalysisPrompt(input.question)) {
-    return {
-      context: input.context,
-      confidence: "high",
-      source: "none",
-      warning: null,
-      assumptionNote: null,
-      needsClarification: false,
-    } satisfies ScopeResolution
-  }
-
-  return {
-    context: input.context,
-    confidence: "low",
-    source: "none",
-    warning: null,
-    assumptionNote: null,
-    needsClarification: true,
-    clarificationQuestion: input.question,
-    clarifyingOptions: buildDateClarificationOptions(input.question, input.context),
-  } satisfies ScopeResolution
-}
-
-function resolveTurnPlan(
-  message: string,
-  options?: {
-    maxMessageChars?: number
-  }
-): DirectTurnPlan {
-  const normalized = String(message ?? "").trim()
-  const maxMessageChars = options?.maxMessageChars ?? AGENT_MAX_MESSAGE_CHARS
-
-  if (!normalized) {
-    return {
-      kind: "direct",
-      warnings: [],
-    }
-  }
-
-  if (normalized.length > maxMessageChars) {
-    throw new Error(
-      `That message is too long for one turn. Keep it under ${maxMessageChars} characters or split it into smaller questions.`
-    )
-  }
-
-  const tokens = tokenizeMessage(normalized)
-
-  if (tokens.length === 0) {
-    return {
-      kind: "direct",
-      warnings: [],
-    }
-  }
-
-  const tokenSet = new Set(tokens)
-  const isGreetingOnly = tokens.every((token) => GREETING_TERMS.has(token))
-  const isCourtesyOnly = tokens.every((token) => COURTESY_TERMS.has(token))
-  const isHelpPrompt =
-    tokenSet.has("help") ||
-    normalized.toLowerCase() === "what can you do" ||
-    normalized.toLowerCase() === "what do you do"
-
-  if (isGreetingOnly || isCourtesyOnly || isHelpPrompt) {
-    return {
-      kind: "direct",
-      warnings: [],
-    }
-  }
-
-  if (!isBusinessAnalysisPrompt(normalized) && tokens.length <= 12) {
-    return {
-      kind: "direct",
-      warnings: [],
-    }
-  }
-
-  return {
-    kind: "analysis",
-    warnings: [],
   }
 }
 
@@ -1376,21 +765,174 @@ type PromptToolEvidenceInput = {
   summary: string
 }
 
-export function buildPromptToolEvidencePayloadForTest(
-  toolResults: PromptToolEvidenceInput[]
-): PromptToolEvidence[] {
-  return toolResults.map((tool) => ({
+function compactEvidenceValueForPrompt(value: unknown, arrayLimit: number): unknown {
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, arrayLimit)
+      .map((entry) => compactEvidenceValueForPrompt(entry, arrayLimit))
+  }
+
+  if (!value || typeof value !== "object") {
+    return value
+  }
+
+  const shaped: Record<string, unknown> = {}
+
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    shaped[key] = compactEvidenceValueForPrompt(entry, arrayLimit)
+  }
+
+  return shaped
+}
+
+function compactEvidenceRecordForPrompt(
+  evidence: Record<string, unknown> | null,
+  tier: EvidencePackTier
+) {
+  if (!evidence) {
+    return null
+  }
+
+  if (tier === "full") {
+    return evidence
+  }
+
+  return compactEvidenceValueForPrompt(evidence, 3) as Record<string, unknown>
+}
+
+function countPromptToolEvidenceChars(
+  payload: PromptToolEvidence[]
+) {
+  return payload.reduce((total, item) => {
+    return (
+      total +
+      item.summary.length +
+      JSON.stringify(item.evidence ?? null).length
+    )
+  }, 0)
+}
+
+function buildPromptToolEvidenceEnvelope(
+  toolResults: PromptToolEvidenceInput[],
+  options?: {
+    profile?: PromptBudgetProfile
+    tier?: EvidencePackTier
+  }
+): PromptToolEvidenceEnvelope {
+  const profile = options?.profile ?? PROMPT_BUDGET_PROFILE_BY_MODE.tools
+  const tier = options?.tier ?? "compact"
+  const warnings: string[] = []
+  const prepared = toolResults.map((tool) => ({
     evidence: tool.evidence ?? null,
     label: tool.label,
     name: tool.name,
-    summary: compactText(tool.summary, AGENT_PROMPT_TOOL_SUMMARY_CHARS),
+    summary: compactText(tool.summary, profile.maxSummaryChars),
   }))
+  const preChars = countPromptToolEvidenceChars(prepared)
+
+  if (profile.mode === "direct") {
+    return {
+      metrics: {
+        droppedEvidenceCount: prepared.length,
+        postChars: 0,
+        preChars,
+      },
+      toolEvidence: [],
+      warnings:
+        prepared.length > 0
+          ? ["Prompt budget: dropped all tool evidence for direct mode."]
+          : [],
+    }
+  }
+
+  let droppedEvidenceCount = 0
+  let runningChars = 0
+  const toolEvidence: PromptToolEvidence[] = prepared.map((tool) => {
+    const summary = tool.summary
+    let evidence: Record<string, unknown> | null = null
+
+    if (profile.includeEvidence) {
+      const compacted = compactEvidenceRecordForPrompt(tool.evidence, tier)
+      const compactedJson = JSON.stringify(compacted ?? null)
+
+      if (compactedJson.length > profile.maxPerToolChars) {
+        droppedEvidenceCount += 1
+        evidence = {
+          note: "Evidence truncated due prompt budget.",
+          compact: compactText(compactedJson, profile.maxPerToolChars),
+        }
+      } else {
+        evidence = compacted
+      }
+    } else {
+      droppedEvidenceCount += tool.evidence ? 1 : 0
+      evidence = null
+    }
+
+    const candidateChars = summary.length + JSON.stringify(evidence ?? null).length
+
+    if (profile.maxTotalChars > 0 && runningChars + candidateChars > profile.maxTotalChars) {
+      if (evidence !== null) {
+        droppedEvidenceCount += 1
+      }
+      evidence = null
+    }
+
+    runningChars += summary.length + JSON.stringify(evidence ?? null).length
+
+    return {
+      evidence,
+      label: tool.label,
+      name: tool.name,
+      summary,
+    } satisfies PromptToolEvidence
+  })
+
+  if (droppedEvidenceCount > 0) {
+    warnings.push(
+      `Prompt budget: compacted or dropped evidence for ${droppedEvidenceCount} tool payload(s).`
+    )
+  }
+
+  return {
+    metrics: {
+      droppedEvidenceCount,
+      postChars: runningChars,
+      preChars,
+    },
+    toolEvidence,
+    warnings,
+  }
+}
+
+export function buildPromptToolEvidenceEnvelopeForTest(
+  toolResults: PromptToolEvidenceInput[],
+  options?: {
+    profile?: PromptBudgetProfile
+    tier?: EvidencePackTier
+  }
+) {
+  return buildPromptToolEvidenceEnvelope(toolResults, options)
+}
+
+export function buildPromptToolEvidencePayloadForTest(
+  toolResults: PromptToolEvidenceInput[],
+  options?: {
+    profile?: PromptBudgetProfile
+    tier?: EvidencePackTier
+  }
+): PromptToolEvidence[] {
+  return buildPromptToolEvidenceEnvelope(toolResults, options).toolEvidence
 }
 
 function buildPromptToolEvidencePayload(
-  toolResults: AgentToolResult[]
-): PromptToolEvidence[] {
-  return buildPromptToolEvidencePayloadForTest(toolResults)
+  toolResults: AgentToolResult[],
+  options?: {
+    profile?: PromptBudgetProfile
+    tier?: EvidencePackTier
+  }
+) {
+  return buildPromptToolEvidenceEnvelope(toolResults, options)
 }
 
 function buildRollingConversationSummary(input: {
@@ -1697,8 +1239,27 @@ function buildAnswerAuditFreshness(
   }
 }
 
+const PROFITABILITY_TERMS = [
+  "profit",
+  "roas",
+  "cpa",
+  "revenue",
+  "margin",
+  "cost",
+  "return",
+  "efficient",
+  "performance",
+  "spend",
+] as const
+
+function queryTouchesProfitability(query: string): boolean {
+  const normalized = query.toLowerCase()
+  return PROFITABILITY_TERMS.some((term) => normalized.includes(term))
+}
+
 function buildAnswerAuditTerminology(
-  toolResults: Awaited<ReturnType<typeof runAgentTools>>
+  toolResults: Awaited<ReturnType<typeof runAgentTools>>,
+  query: string
 ): AnswerAudit["terminology"] {
   const notes: string[] = []
   let paidMedia: AnswerAudit["terminology"]["paidMedia"] = "unknown"
@@ -1708,7 +1269,7 @@ function buildAnswerAuditTerminology(
   const paidData = asRecord(paidTool?.data) ?? {}
   const profitProxyModel = asRecord(paidData.profitProxyModel)
 
-  if (profitProxyModel) {
+  if (profitProxyModel && queryTouchesProfitability(query)) {
     paidMedia = "proxy"
     const confidence = String(profitProxyModel.confidence ?? "unknown")
       .trim()
@@ -1841,6 +1402,7 @@ function buildAnswerAuditEvidence(
 }
 
 function buildAnswerAudit(input: {
+  query: string
   scopeResolution: ScopeResolution
   toolResults: Awaited<ReturnType<typeof runAgentTools>>
 }): AnswerAudit {
@@ -1853,7 +1415,7 @@ function buildAnswerAudit(input: {
       source: input.scopeResolution.source,
       to: input.scopeResolution.context.to,
     },
-    terminology: buildAnswerAuditTerminology(input.toolResults),
+    terminology: buildAnswerAuditTerminology(input.toolResults, input.query),
   }
 }
 
@@ -3954,6 +3516,8 @@ function buildDateClarificationPrompt(input: {
   return buildDateClarificationPromptForTest(input)
 }
 
+// Compatibility entrypoint:
+// New route-level call sites should import from lib/agent/orchestration/run-agent-turn.ts.
 export async function runAgentTurn(input: {
   conversationId?: string
   confirmedOps?: string[]
@@ -4014,9 +3578,11 @@ export async function runAgentTurn(input: {
   const history = existingConversation
     ? await listAgentMessages(existingConversation.id)
     : []
-  const pendingDateClarification = getPendingDateClarification(history)
+  const pendingDateClarification =
+    getPendingDateClarificationFromScopeModule(history)
   const isDateFollowUp =
-    Boolean(pendingDateClarification) && isDateScopeOnlyPrompt(input.message)
+    Boolean(pendingDateClarification) &&
+    isDateScopeOnlyPromptFromScopeModule(input.message)
   const analysisQuestion =
     isDateFollowUp && pendingDateClarification
       ? `Use ${input.message.trim()} as the date range for this question: ${pendingDateClarification}`
@@ -4065,7 +3631,7 @@ export async function runAgentTurn(input: {
           kind: "analysis" as const,
           warnings: [],
         }
-      : resolveTurnPlan(analysisQuestion, {
+      : resolveTurnPlanFromScopeModule(analysisQuestion, {
           maxMessageChars: input.presetId
             ? AGENT_MAX_PRESET_MESSAGE_CHARS
             : AGENT_MAX_MESSAGE_CHARS,
@@ -4100,7 +3666,7 @@ export async function runAgentTurn(input: {
             assumptionNote: null,
             needsClarification: false,
           } satisfies ScopeResolution)
-        : resolveScopeForTurn({
+        : resolveScopeForTurnFromScopeModule({
             context: presetContext?.context ?? input.context,
             question: analysisQuestion,
             scopeSignal: input.message,
@@ -4116,8 +3682,10 @@ export async function runAgentTurn(input: {
     pendingWorkerPlan
       ? effectiveAnalysisQuestion
       : scopeResolution.source === "inferred" &&
-          monthShortYearDateRange(input.message) !== null
-        ? normalizeMonthShortYearQuestion(effectiveAnalysisQuestion)
+          monthShortYearDateRangeFromScopeModule(input.message) !== null
+        ? normalizeMonthShortYearQuestionFromScopeModule(
+            effectiveAnalysisQuestion
+          )
         : effectiveAnalysisQuestion
   const executionQuestion =
     pendingWorkerPlan
@@ -4168,14 +3736,90 @@ export async function runAgentTurn(input: {
         }
       : undefined,
   })
-  const toolResults =
+  const toolsSuppressed =
     hasExplicitConfirmedOps || turnPlan.kind === "direct" || requiresDateClarification
-      ? []
-      : await runAgentTools({
-          context: scopeResolution.context,
-          message: executionQuestion,
-          toolNames,
-        })
+  let toolCacheEligible = false
+  let toolCacheHit = false
+  let toolCacheSignature: string | null = null
+  let toolCacheTtlMs: number | null = null
+  let toolResultsCacheToPersist: ToolResultsCachePayload | null = null
+  let toolResults: AgentToolResult[] = []
+
+  if (!toolsSuppressed) {
+    const cacheSignature = buildToolResultsCacheSignatureForTest({
+      context: scopeResolution.context,
+      executionQuestion,
+      presetId: input.presetId,
+      toolNames,
+    })
+    toolCacheSignature = cacheSignature.signature
+    toolCacheTtlMs = resolveToolResultsCacheTtlMsForTest({
+      presetId: input.presetId,
+      toolNames,
+    })
+    toolCacheEligible = env.agent.enableToolCache && pendingWorkerPlan === null
+
+    if (toolCacheEligible && toolCacheSignature) {
+      const cachedArtifact = await getLatestAgentArtifactByLabel({
+        artifactType: TOOL_RESULTS_CACHE_ARTIFACT_TYPE,
+        label: toolCacheSignature,
+        workspaceId: input.context.workspaceId,
+      })
+
+      if (cachedArtifact) {
+        const payload = asRecord(cachedArtifact.payload)
+        const expiresAt = parseIsoTimestampMs(
+          String(payload?.expiresAt ?? "").trim()
+        )
+        const cachedSignature = String(payload?.signature ?? "").trim()
+        const cachedToolNames = Array.isArray(payload?.toolNames)
+          ? payload.toolNames
+              .map((entry) => String(entry ?? "").trim())
+              .filter((entry): entry is AgentToolName => isAgentToolName(entry))
+          : []
+        const cachedResults = parseCachedToolResults(payload?.toolResults)
+        const toolNameMatch =
+          cachedToolNames.length === toolNames.length &&
+          cachedToolNames.every((name) => toolNames.includes(name))
+
+        if (
+          expiresAt !== null &&
+          expiresAt > Date.now() &&
+          cachedSignature === toolCacheSignature &&
+          toolNameMatch &&
+          cachedResults
+        ) {
+          toolResults = cachedResults
+          toolCacheHit = true
+        }
+      }
+    }
+
+    if (!toolCacheHit) {
+      toolResults = await runAgentTools({
+        context: scopeResolution.context,
+        message: executionQuestion,
+        toolNames,
+      })
+
+      if (toolCacheEligible && toolCacheSignature && toolCacheTtlMs !== null) {
+        toolResultsCacheToPersist = {
+          context: {
+            compare: scopeResolution.context.compare,
+            from: scopeResolution.context.from,
+            to: scopeResolution.context.to,
+            workspaceId: scopeResolution.context.workspaceId,
+          },
+          executionQuestionFingerprint: cacheSignature.questionFingerprint,
+          expiresAt: new Date(Date.now() + toolCacheTtlMs).toISOString(),
+          presetId: input.presetId ?? null,
+          signature: toolCacheSignature,
+          toolNames: cacheSignature.sortedToolNames,
+          toolResults,
+        }
+      }
+    }
+  }
   const preset = input.presetId ? getAgentPreset(input.presetId) : null
   const workerEnabledByHeuristic = shouldUseWorker(analysisQuestion, toolNames)
   const nonRunbookWorkerEnabled = true
@@ -4229,12 +3873,41 @@ export async function runAgentTurn(input: {
   })
   const warnings: string[] = []
   const usageSegments: AgentUsageSegment[] = []
+  const promptBudgetMode: "direct" | "tools" | "worker_plan" =
+    executionMode === "worker"
+      ? "worker_plan"
+      : executionMode === "direct" || requiresDateClarification
+      ? "direct"
+      : "tools"
+  const promptBudgetProfile = resolvePromptBudgetProfileForTest({
+    mode: promptBudgetMode,
+  })
+  const toolEvidenceEnvelope = buildPromptToolEvidencePayload(toolResults, {
+    profile: promptBudgetProfile,
+    tier: env.agent.evidenceTier,
+  })
+  const promptBudgetTelemetry = {
+    cache: {
+      eligible: toolCacheEligible,
+      hit: toolCacheHit,
+      signature: toolCacheSignature,
+      ttlMs: toolCacheTtlMs,
+    },
+    droppedEvidenceCount: toolEvidenceEnvelope.metrics.droppedEvidenceCount,
+    evidenceCharsPost: toolEvidenceEnvelope.metrics.postChars,
+    evidenceCharsPre: toolEvidenceEnvelope.metrics.preChars,
+    mode: promptBudgetMode,
+    profile: promptBudgetProfile,
+    tier: env.agent.evidenceTier,
+    warnings: toolEvidenceEnvelope.warnings,
+  }
   const charts =
     turnPlan.kind === "direct" || requiresDateClarification
       ? []
-      : buildAgentCharts(toolResults)
-  const toolEvidence = buildPromptToolEvidencePayload(toolResults)
+      : buildAgentCharts(toolResults, input.message)
+  const toolEvidence = toolEvidenceEnvelope.toolEvidence
   const answerAudit = buildAnswerAudit({
+    query: input.message,
     scopeResolution,
     toolResults,
   })
@@ -4253,6 +3926,17 @@ export async function runAgentTurn(input: {
   }
 
   try {
+    if (toolResultsCacheToPersist) {
+      await createAgentArtifact({
+        artifactType: TOOL_RESULTS_CACHE_ARTIFACT_TYPE,
+        conversationId: conversation.id,
+        label: toolResultsCacheToPersist.signature,
+        payload: toolResultsCacheToPersist,
+        runId: run.runId,
+        workspaceId: input.context.workspaceId,
+      })
+    }
+
     await assertWorkspaceBudgetAvailable(input.context.workspaceId)
 
     warnings.push(...turnPlan.warnings)
@@ -4686,6 +4370,7 @@ export async function runAgentTurn(input: {
           source: scopeResolution.source,
           to: scopeResolution.context.to,
         },
+        promptBudget: promptBudgetTelemetry,
         requestedOps,
         usage: usageSummary,
         usedTools: toolResults.map((tool) => ({
@@ -4753,6 +4438,7 @@ export async function runAgentTurn(input: {
           source: scopeResolution.source,
           to: scopeResolution.context.to,
         },
+        promptBudget: promptBudgetTelemetry,
         requestedOps,
         runStatus: "failed",
         usage: usageSummary,

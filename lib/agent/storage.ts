@@ -40,6 +40,11 @@ type PendingWorkerPlanRow = {
   payload_json?: string
 }
 
+type ArtifactRow = {
+  created_at?: string
+  payload_json?: string
+}
+
 function parseConversation(row: ConversationRow): AgentStorageConversation {
   return {
     createdAt: String(row.created_at ?? ""),
@@ -315,6 +320,35 @@ export async function getLatestPendingWorkerPlan(conversationId: string) {
   return {
     payload: parseJsonRecord(String(row.payload_json ?? "{}")),
     runId,
+  }
+}
+
+export async function getLatestAgentArtifactByLabel(input: {
+  artifactType: string
+  label: string
+  workspaceId: string
+}) {
+  const row = await queryFirst<ArtifactRow>(
+    `
+      SELECT payload_json, created_at
+      FROM agent_artifacts
+      WHERE workspace_id = ?
+        AND artifact_type = ?
+        AND label = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    [input.workspaceId, input.artifactType, input.label],
+    { bypassCache: true }
+  )
+
+  if (!row) {
+    return null
+  }
+
+  return {
+    createdAt: String(row.created_at ?? "").trim(),
+    payload: parseJsonRecord(String(row.payload_json ?? "{}")),
   }
 }
 

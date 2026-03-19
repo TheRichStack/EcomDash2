@@ -288,6 +288,9 @@ function readRunbookMarkdown() {
 }
 
 function parseRunbookMarkdown(markdown: string): ParsedRunbookDoc[] {
+  // Parser-coupling note:
+  // This regex intentionally couples runtime parsing to docs/ecomdash2/agent-runbooks.md headings
+  // and section labels. If markdown structure changes, update this parser in the same commit.
   const sections = Array.from(
     markdown.matchAll(
       /^# Runbook \d+: (.+)\r?\n([\s\S]*?)(?=^---\s*$|^## Suggested UI ordering|^## Implementation note|\Z)/gm

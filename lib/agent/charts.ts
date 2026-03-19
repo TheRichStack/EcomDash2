@@ -184,7 +184,43 @@ function buildAnomalyChart(result: AgentToolResult): AgentChartSpec | null {
   }
 }
 
-export function buildAgentCharts(toolResults: AgentToolResult[]) {
+const PAID_MEDIA_CHART_PROFIT_TERMS = [
+  "spend",
+  "revenue",
+  "roas",
+  "profit",
+  "cpa",
+  "cost",
+  "return",
+  "performance",
+  "efficient",
+] as const
+
+const PAID_MEDIA_CHART_METRIC_ONLY_TERMS = [
+  "impression",
+  "click",
+  "ctr",
+  "cpm",
+  "reach",
+  "frequency",
+  "hook",
+  "thumbstop",
+] as const
+
+function isPaidMediaChartRelevant(query: string): boolean {
+  const normalized = query.toLowerCase()
+  const hasProfit = PAID_MEDIA_CHART_PROFIT_TERMS.some((term) =>
+    normalized.includes(term)
+  )
+  if (hasProfit) return true
+  const hasMetricOnly = PAID_MEDIA_CHART_METRIC_ONLY_TERMS.some((term) =>
+    normalized.includes(term)
+  )
+  // Suppress if query is clearly about a raw metric the chart doesn't show
+  return !hasMetricOnly
+}
+
+export function buildAgentCharts(toolResults: AgentToolResult[], query = "") {
   const charts: AgentChartSpec[] = []
 
   for (const result of toolResults) {
@@ -192,7 +228,9 @@ export function buildAgentCharts(toolResults: AgentToolResult[]) {
 
     switch (result.name) {
       case "paid_media_summary":
-        chart = buildPaidMediaChart(result)
+        chart = isPaidMediaChartRelevant(query)
+          ? buildPaidMediaChart(result)
+          : null
         break
       case "product_performance":
         chart = buildProductChart(result)
