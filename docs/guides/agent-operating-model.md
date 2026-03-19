@@ -1,5 +1,8 @@
 # EcomDash2 Agent Operating Model
 
+> Status (March 19, 2026): Historical guidance for the rebuild phase.
+> For current in-dashboard agent runtime navigation and ownership, use `docs/ecomdash2/agent/README.md` as the source of truth.
+
 ## Purpose
 
 Define how a PM agent and fresh worker agents should operate inside this repo while EcomDash2 is being rebuilt inside `EcomDash2/TRS_Starter_Core`.

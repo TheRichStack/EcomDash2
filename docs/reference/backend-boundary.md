@@ -90,6 +90,7 @@ These tables are allowed as part of the EcomDash2 dependency boundary.
 - `contract_daily_overview`
 - `contract_daily_channel_campaign`
 - `contract_creative_performance`
+- `contract_customer_cohorts`
 
 ### Defer
 
@@ -398,3 +399,24 @@ If and when EcomDash2 moves to its own live database:
 3. do not port `Cut` tables
 4. port or rewrite the connector and contract scripts only for the `Keep` path
 5. keep EcomDash2-specific config keys namespaced from day one so cutover is mechanical rather than forensic
+
+## Migration ownership
+
+The EcomDash2-owned schema subset is defined by:
+
+- `lib/db/migrations/0001_owned_system_and_inputs.sql`
+- `lib/db/migrations/0002_owned_shopify_and_analytics.sql`
+- `lib/db/migrations/0003_owned_marketing_raw.sql`
+- `lib/db/migrations/0004_owned_facts_reports_contracts.sql`
+- `lib/db/migrations/0005_owned_indexes.sql`
+
+These are baseline snapshots, not a replay of every V1 migration. Agent and conversation tables continue in:
+
+- `lib/db/migrations/0006_owned_agent.sql`
+- `lib/db/migrations/0007_agent_conversation_summary.sql`
+
+## Shared-DB compatibility mode
+
+Some deferred and excluded tables (`raw_shopify_analytics_catalog`, `raw_shopify_analytics_dimensions_catalog`, `raw_shopify_markets`, `ads_entity_snapshot`) have connector specs that reference them but are defaulted off at runtime.
+
+If those writes need to be temporarily re-enabled, set `CONNECTOR_SUPPORT_TABLES=shared` in the environment.

@@ -1,0 +1,74 @@
+---
+description: Audit document health — artifacts cleanup, docs orphans, dead links. Invoke with @doc-sync.
+alwaysApply: false
+---
+
+# Doc-sync — Document Health Triage
+
+When invoked (e.g. `@doc-sync`), run all three checks **sequentially**. Produce a structured triage report and **action each section with the user before moving on**. Never auto-delete files — always surface for human decision.
+
+## Context
+
+- `CLAUDE.md` and `.cursorrules` are a mirrored pair — treat both as routing table sources
+- `artifacts/` is always ephemeral — nothing there should persist after a task is done
+- `docs/` is always stable reference — never delete without human confirmation
+- Full document lifecycle rules are in `AGENTS.md` under `### Document lifecycle contract`
+
+---
+
+## Check 1: Artifacts cleanup
+
+1. List every file in `artifacts/` recursively
+2. These are ephemeral by definition — flag all of them for deletion
+3. For each file, show the path and ask the user to confirm deletion or keep
+4. **Never auto-delete without confirmation**
+
+---
+
+## Check 2: Docs orphan check
+
+1. List every file in `docs/` recursively
+2. Open `CLAUDE.md` and extract the routing table under `## Where to go by task`:
+   - From the table: extract all file paths from the "Read first" column (e.g. `SETUP.md`, `docs/UI_BUILDING.md`, `docs/ecomdash2/page-specs/`)
+   - Treat directory paths (e.g. `docs/ecomdash2/page-specs/`) as covering all files under that path
+3. Open `.cursorrules` and extract its routing destinations under `## Where to go by task`:
+   - From the bullet list: extract all paths (e.g. `SETUP.md`, `docs/UI_BUILDING.md`, `docs/ecomdash2/page-specs/[page].md`)
+   - Treat patterns like `docs/ecomdash2/page-specs/[page].md` as covering `docs/ecomdash2/page-specs/*.md`
+4. Merge both sets — a doc is referenced if it matches any path or falls under any directory
+5. Flag any file in `docs/` that is NOT referenced in either routing table — these are orphans
+6. For each orphan, ask: add to routing table, or delete?
+7. **Never auto-delete docs/ files — always surface for human decision**
+
+---
+
+## Check 3: Dead link check
+
+1. From the merged routing table (CLAUDE.md + .cursorrules), collect every referenced path
+2. For each path:
+   - If it is a directory (e.g. `docs/ecomdash2/page-specs/`): verify the directory exists
+   - If it is a file (e.g. `docs/UI_BUILDING.md`): verify the file exists on disk
+   - If it is a pattern (e.g. `docs/ecomdash2/page-specs/[page].md`): verify the directory exists and has at least one matching file
+3. Flag any routing table entry pointing to a path that does not exist
+
+---
+
+## Output format
+
+Produce a structured triage report:
+
+**ARTIFACTS — confirm deletion:**
+- [ ] artifacts/path/to/file.md
+
+**DOCS ORPHANS — add to routing table or delete:**
+- [ ] docs/path/to/orphan.md
+
+**DEAD LINKS — routing table points to missing file:**
+- [ ] docs/path/that/doesnt/exist.md
+
+---
+
+## Workflow
+
+1. Run Check 1 → produce artifacts section → **action with user** (confirm each deletion or keep) → proceed only when user has decided
+2. Run Check 2 → produce docs orphans section → **action with user** (add to routing table or delete each) → proceed only when user has decided
+3. Run Check 3 → produce dead links section → **action with user** (fix or remove broken references) → done

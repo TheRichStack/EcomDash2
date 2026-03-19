@@ -19,14 +19,16 @@ The repo root is the app root. There is no parent repo.
 |------|------------|
 | Setting up the app (founder) | [SETUP.md](SETUP.md) |
 | Full agent rules | [AGENTS.md](AGENTS.md) |
-| Building any UI | [docs/UI_BUILDING.md](docs/UI_BUILDING.md), [docs/ecomdash2/forbidden-abstractions.md](docs/ecomdash2/forbidden-abstractions.md) |
+| Building any UI | [docs/guides/ui-building.md](docs/guides/ui-building.md), [docs/decisions/forbidden-abstractions.md](docs/decisions/forbidden-abstractions.md) |
+| UI patterns and guardrails | [docs/decisions/dashboard-patterns.md](docs/decisions/dashboard-patterns.md), [docs/decisions/ui-guardrails.md](docs/decisions/ui-guardrails.md) |
 | Working on a specific page | [docs/ecomdash2/page-specs/](docs/ecomdash2/page-specs/) |
-| Design and product scope | [docs/ecomdash2/design-philosophy.md](docs/ecomdash2/design-philosophy.md) |
-| Data sources and table ownership | [docs/ecomdash2/backend-boundary.md](docs/ecomdash2/backend-boundary.md) |
-| Jobs and connectors | [docs/ecomdash2/job-runtime-layout.md](docs/ecomdash2/job-runtime-layout.md) |
-| In-dashboard AI agent | [docs/ecomdash2/agentic-brain-implementation.md](docs/ecomdash2/agentic-brain-implementation.md) |
-| Metrics and KPIs | [docs/ecomdash2/metrics-engine.md](docs/ecomdash2/metrics-engine.md) |
-| Folder placement rules | [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) |
+| Design and product scope | [docs/ecomdash2/README.md](docs/ecomdash2/README.md), [docs/decisions/design-philosophy.md](docs/decisions/design-philosophy.md) |
+| Data sources and table ownership | [docs/reference/backend-boundary.md](docs/reference/backend-boundary.md) |
+| Jobs and connectors | [docs/reference/job-runtime-layout.md](docs/reference/job-runtime-layout.md) |
+| In-dashboard AI agent | [docs/guides/agentic-brain-implementation.md](docs/guides/agentic-brain-implementation.md), [docs/reference/agent/](docs/reference/agent/) |
+| PM/worker agent handoff system | [docs/guides/agent-handoffs/README.md](docs/guides/agent-handoffs/README.md), [docs/guides/agent-handoffs/CLAUDE-CODE-PM.md](docs/guides/agent-handoffs/CLAUDE-CODE-PM.md) |
+| Metrics and KPIs | [docs/reference/metrics-engine.md](docs/reference/metrics-engine.md) |
+| Folder placement rules | [docs/reference/project-structure.md](docs/reference/project-structure.md) |
 
 ## Key commands
 
@@ -42,5 +44,5 @@ npm run db:migrate:apply # apply pending migrations
 ## Notes
 
 - The Turso database is currently shared with a prior version of the app — this is intentional
-- Only read/write tables listed in `docs/ecomdash2/backend-boundary.md`
+- Only read/write tables listed in `docs/reference/backend-boundary.md`
 - The in-dashboard AI agent (`lib/agent/`) is a real subsystem — read its doc before touching it

@@ -62,6 +62,7 @@ If you want repo separation now:
 - `runtime-setup.md`
 - `job-runtime-layout.md`
 - `agent-operating-model.md`
+- `agent/README.md`
 - `ui-guardrails.md`
 - `dashboard-patterns.md`
 - `forbidden-abstractions.md`

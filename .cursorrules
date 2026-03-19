@@ -17,14 +17,16 @@ The repo root is the app root. There is no parent repo.
 
 - Setting up the app (founder): SETUP.md
 - Full agent rules: AGENTS.md
-- Building any UI: docs/UI_BUILDING.md and docs/ecomdash2/forbidden-abstractions.md
+- Building any UI: docs/guides/ui-building.md and docs/decisions/forbidden-abstractions.md
+- UI patterns and guardrails: docs/decisions/dashboard-patterns.md and docs/decisions/ui-guardrails.md
 - Working on a specific page: docs/ecomdash2/page-specs/[page].md
-- Design and product scope: docs/ecomdash2/design-philosophy.md
-- Data sources and table ownership: docs/ecomdash2/backend-boundary.md
-- Jobs and connectors: docs/ecomdash2/job-runtime-layout.md
-- In-dashboard AI agent: docs/ecomdash2/agentic-brain-implementation.md
-- Metrics and KPIs: docs/ecomdash2/metrics-engine.md
-- Folder placement rules: docs/PROJECT_STRUCTURE.md
+- Design and product scope: docs/ecomdash2/README.md and docs/decisions/design-philosophy.md
+- Data sources and table ownership: docs/reference/backend-boundary.md
+- Jobs and connectors: docs/reference/job-runtime-layout.md
+- In-dashboard AI agent: docs/guides/agentic-brain-implementation.md and docs/reference/agent/
+- PM/worker agent handoff system: docs/guides/agent-handoffs/README.md and docs/guides/agent-handoffs/CLAUDE-CODE-PM.md
+- Metrics and KPIs: docs/reference/metrics-engine.md
+- Folder placement rules: docs/reference/project-structure.md
 
 ## Key commands
 
@@ -36,6 +38,14 @@ npm run build            # production build check
 npm run jobs:hourly      # run hourly sync locally
 npm run db:migrate:apply # apply pending migrations
 ```
+
+## Document lifecycle
+
+- `artifacts/` is ephemeral — delete any files you create there when the task is done
+- `docs/` is stable reference only — if you create or modify a doc there, add or update its entry in the routing table above in the same task
+- Update affected READMEs and docs in the same commit as the code change
+- `.cursorrules` and `CLAUDE.md` are a mirrored pair — any change to one must be reflected in the other in the same commit
+- Full rules in AGENTS.md → Document lifecycle contract
 
 ## Notes
 

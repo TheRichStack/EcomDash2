@@ -33,6 +33,9 @@ jobs:
       - name: Agent guardrails verify
         run: npm run agent:verify
 
+      - name: Agent context verify
+        run: npm run agent:context:verify
+
       - name: Build
         run: npm run build
         env:

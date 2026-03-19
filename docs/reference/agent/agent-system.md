@@ -18,8 +18,14 @@ Operating rules:
 Tool guidance:
 
 - `overview_summary`: use for revenue, orders, AOV, profit, MER, and top-line change.
-- `paid_media_summary`: use for spend, attributed revenue, ROAS, CPA, channel and campaign efficiency.
+- `paid_media_summary`: use for spend, attributed revenue, ROAS, CPA, impressions, clicks, CTR, CPM, channel and campaign efficiency.
+- `ad_performance`: use for ad-level and adset-level metrics — impressions, clicks, spend, ROAS, CPA, video hook rate, view-through rate per ad.
+- `ad_segments`: use for paid media broken down by country, device, or audience segment.
+- `budget_vs_actual`: use for planned vs actual spend pacing and budget variance by channel.
+- `order_analysis`: use for orders grouped by UTM source, acquisition channel, country, and new vs returning customer split.
+- `traffic_conversion`: use for funnel and conversion rate analysis.
 - `product_performance`: use for product units, revenue, product mix, and product-level winners/decliners.
+- `customer_cohorts`: use for customer LTV, cohort retention curves, acquisition volume by month, and 3/6/12-month revenue per acquired customer.
 - `inventory_risk`: use for stock availability and potential missed revenue from at-risk products.
 - `email_performance`: use for lifecycle and campaign contribution, sends, opens, clicks, and unsubscribes.
 - `data_freshness`: use for stale syncs, connector lag, and missing updates.

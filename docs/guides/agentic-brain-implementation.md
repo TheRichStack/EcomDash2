@@ -17,6 +17,18 @@ It covers:
 
 This is the implementation note for the live EcomDash2 agent, not the archived V1 reference work.
 
+Related docs:
+
+- `docs/ecomdash2/agent/README.md` - start here for file routing and ownership
+- `docs/ecomdash2/agent/api-contracts.md` - route-level contracts for `app/api/agent/**`
+- `docs/ecomdash2/agent/worker-broker.md` - guarded execution and broker rules
+- `docs/ecomdash2/agent/scope-resolution.md` - time-scope inference and clarification behavior
+- `docs/ecomdash2/agent/runbooks/README.md` - runbook structure and future split plan
+
+Routing note:
+
+- if you are deciding where to edit first, use `docs/ecomdash2/agent/README.md`; this file stays focused on current implementation behavior
+
 ## What Exists Today
 
 The current agent is a workspace-scoped chat and runbook subsystem embedded inside the dashboard.
@@ -166,6 +178,11 @@ The app-owned tool set currently includes:
 - `overview_summary`
 - `traffic_conversion`
 - `paid_media_summary`
+- `ad_performance`
+- `ad_segments`
+- `budget_vs_actual`
+- `order_analysis`
+- `customer_cohorts`
 - `inventory_risk`
 - `product_performance`
 - `email_performance`
@@ -228,6 +245,8 @@ Current chart generation lives in:
 
 Charts are currently driven by deterministic structured data, not free-form markdown.
 
+Charts are query-scoped: a chart is only rendered when its metrics are relevant to what the user asked. For example, the paid-media spend/revenue chart is suppressed for raw-metric queries (impressions, clicks, CTR, CPM) and only shown for profitability or efficiency questions.
+
 ## Worker and Broker Path
 
 The external worker path exists and is optional.
@@ -275,6 +294,14 @@ Worker mode for free-form turns is **enabled by default** (no env flag required)
 The `ECOMDASH2_AGENT_ENABLE_WORKER` env variable is no longer consulted for free-form turns.
 Runbook presets retain their own fixed `executionMode` and are unaffected.
 
+Prompt budget controls now enforce compact evidence payloads for model prompts:
+
+- tools mode evidence cap: 2800 chars total, 900 chars per tool payload
+- worker-plan mode: summary-only evidence payloads
+- direct mode: no tool evidence payload
+
+Tool result reuse cache is enabled by default (`ECOMDASH2_AGENT_ENABLE_TOOL_CACHE=1`) with conservative TTLs by turn type and freshness sensitivity.
+
 ## Cost Tracking and Budgets
 
 The system currently tracks provider usage and estimated spend per assistant turn.
@@ -320,6 +347,10 @@ This is used to tune runbooks against real data windows such as November 2025.
 ### Core runtime
 
 - `lib/agent/orchestrator.ts`
+- `lib/agent/orchestration/run-agent-turn.ts`
+- `lib/agent/orchestration/scope-resolution.ts`
+- `lib/agent/orchestration/prompt-builder.ts`
+- `lib/agent/orchestration/worker-guardrails.ts`
 - `lib/agent/context.ts`
 - `lib/agent/types.ts`
 - `lib/agent/constants.ts`
@@ -367,8 +398,7 @@ This is used to tune runbooks against real data windows such as November 2025.
 
 ### Supporting docs and artifacts
 
-- `docs/ecomdash2/agent-runbooks.md`
-- `docs/ecomdash2/agent-system.md`
+- `docs/ecomdash2/agent/README.md` and focused docs under `docs/ecomdash2/agent/**`
 - `artifacts/agent-lab/**`
 
 ## Current UX Behavior
@@ -392,14 +422,15 @@ That is because several important runbooks now use deterministic backend contrac
 
 The most important current limitations are:
 
-- free-form scope resolution is still too rigid in some cases
-- date and event inference is not yet confidence-based enough
+- free-form scope resolution handles most common patterns (specific days, seasons, quarters, named events) but edge cases remain
+- date inference now covers: specific days ("November the 16th"), seasons ("summer 2026"), quarters ("Q1 2025"), named events (BFCM), and standard relative ranges
+- scope and turn-plan resolution now run through `lib/agent/orchestration/scope-resolution.ts`; orchestration extraction is still in progress for other concerns
 - some runbooks are materially stronger than others
 - workspace sharing exists, but true user-level auth does not
 - the worker path exists, but many high-value flows are intentionally pinned to deterministic `tools` mode
 - tool coverage is still stronger for overview, anomaly, product, and paid/media summary use cases than for deeper business-event reasoning
 - answer auditability exists in storage, but there is still room for a better “inspect answer” product surface
-- terminology guardrails are deterministic and warning-based; current coverage includes paid-media proxy modeling and mixed/fallback conversion language
+- terminology guardrails are deterministic and warning-based; current coverage includes paid-media proxy modeling and mixed/fallback conversion language; guardrails are query-scoped and only fire when the user's question is relevant to the guarded concept (e.g. the profitability proxy guardrail is suppressed for pure metric queries like impressions or CTR)
 
 ## Important Current Principle
 
@@ -417,9 +448,66 @@ It is not:
 
 ## Recommended Next Documentation
 
-If this subsystem keeps growing, the next docs worth adding are:
+For navigation and ownership, keep `docs/ecomdash2/agent/README.md` as the entrypoint and extend the focused docs under `docs/ecomdash2/agent/**`.
 
-- a dedicated route/interface contract doc for `app/api/agent/**`
-- a broker security and capability doc
+Still worth adding later:
+
 - a runbook quality tracker summarizing current lab scores and weak areas
-- a scope-resolution design doc for the next free-form inference pass
+- a narrower deterministic report contract doc if report builders continue to grow
+
+## Future Primitive Direction
+
+The current tool layer returns broad mixed payloads. The target architecture moves toward narrow, composable primitives.
+
+### Key gaps
+
+- Primitives are broad payloads, not narrow query contracts — increases token cost and synthesis instability
+- No resolver primitives for entity resolution, event windows, or baseline selection
+- No formal delta decomposition primitive (traffic / conversion / AOV / mix contribution)
+- No compact evidence pack mechanism — model often receives more detail than needed for a specific question
+
+### Target composition rules
+
+1. Resolve first — scope and entities before fetching broad data
+2. Compute second — deterministic primitives produce compact evidence pack
+3. Narrate last — LLM only summarises, prioritises, and recommends
+4. Fail closed — if evidence is missing or invalid, return explicit error state, not synthetic claims
+5. Keep payloads compact — pass only evidence pack fields needed by the selected output template
+
+### Target primitive catalog (not yet implemented)
+
+Resolver:
+
+- `resolve_entity` — free-text → canonical ids and confidence
+- `resolve_time_scope` — question + workspace context → resolved range and source
+- `resolve_event_window` — event phrase → window candidates with confidence
+
+Metric/query:
+
+- `query_metric_series` — metric id + date range + grain → compact time series
+- `query_breakdown` — metric id + dimension + date range → top contributors
+- `query_product_profile` — product/sku + date range → sales/units/margin/velocity
+- `query_inventory_profile` — product/sku + date range → stock/risk/velocity
+- `query_channel_efficiency` — date range + optional filters → spend/revenue/cpa/roas
+
+Analysis:
+
+- `decompose_revenue_delta` — two periods → contribution table by driver
+- `detect_anomalies_compact` — date range + sensitivity → ranked anomaly list
+- `forecast_units` — entity + historical windows → expected/low/high demand scenarios
+- `plan_inventory_targets` — forecast + lead time + safety stock rules → min/target/stretch recommendations
+- `plan_budget_targets` — channel efficiency trends + constraints → allocation ranges
+
+Output:
+
+- `build_evidence_pack` — intent + primitive outputs → compact evidence JSON for LLM narration
+- `build_operator_report` — evidence pack + template id → deterministic section scaffold
+
+### Recommended implementation order
+
+1. Resolver primitives (`resolve_entity`, `resolve_time_scope`, `resolve_event_window`)
+2. Compact query primitives (`query_metric_series`, `query_breakdown`, `query_product_profile`, `query_inventory_profile`)
+3. Planning primitives (`forecast_units`, `plan_inventory_targets`, `plan_budget_targets`)
+4. Evidence/output pack primitives (`build_evidence_pack`, `build_operator_report`)
+5. Refactor runbooks to consume these primitives directly
+6. Refactor free-form path to compose primitives before LLM narration

@@ -1,0 +1,30 @@
+name: EcomDash2 Agent Context Ratchet
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  ratchet:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Agent context verify
+        run: npm run agent:context:verify
+
+      - name: Agent context ratchet report
+        run: npm run agent:context:ratchet

@@ -73,19 +73,20 @@ You are helping add features, fix bugs, or maintain EcomDash2.
 Before starting any build task, read the relevant docs:
 
 - `docs/ecomdash2/README.md` — product scope and what exists today
-- `docs/ecomdash2/design-philosophy.md` — reporting-first, no exception-based UI
-- `docs/ecomdash2/backend-boundary.md` — which tables this app owns
-- `docs/UI_BUILDING.md` — UI rules and the inline-first principle
-- `docs/ecomdash2/forbidden-abstractions.md` — what not to build
-- `docs/ecomdash2/dashboard-patterns.md` — approved page structure
-- `docs/ecomdash2/ui-guardrails.md` — component promotion rules
-- `docs/ecomdash2/metrics-engine.md` — metric definitions and registry
+- `docs/decisions/design-philosophy.md` — reporting-first, no exception-based UI
+- `docs/reference/backend-boundary.md` — which tables this app owns
+- `docs/guides/ui-building.md` — UI rules and the inline-first principle
+- `docs/decisions/forbidden-abstractions.md` — what not to build
+- `docs/decisions/dashboard-patterns.md` — approved page structure
+- `docs/decisions/ui-guardrails.md` — component promotion rules
+- `docs/reference/metrics-engine.md` — metric definitions and registry
 - The relevant file under `docs/ecomdash2/page-specs/` if working on a specific page
-- `docs/ecomdash2/agentic-brain-implementation.md` if working on the in-dashboard agent
+- `docs/reference/agent/README.md` if working on the in-dashboard agent
+- `docs/reference/agent/context-budget-policy.md` when defining or reviewing agent task scope
 
 ### Source of truth priority
 
-1. `docs/ecomdash2/` specs — always win
+1. `docs/decisions/` and `docs/reference/` specs — always win
 2. Existing app-owned runtime files
 3. Inference from the codebase
 4. Ask for clarification if genuinely ambiguous — do not widen scope casually
@@ -124,7 +125,10 @@ Before starting any build task, read the relevant docs:
 | Job runners (CLI entrypoints) | `scripts/jobs/` |
 | DB scripts | `scripts/db/` |
 | Shared types | `types/` |
-| Project docs | `docs/` |
+| Stable reference docs | `docs/reference/` |
+| Build guides and how-tos | `docs/guides/` |
+| Design decisions and constraints | `docs/decisions/` |
+| Product/domain docs and page specs | `docs/ecomdash2/` |
 
 See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for detailed folder-level rules.
 
@@ -139,9 +143,10 @@ See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for detailed folder-l
 
 The in-dashboard agent (`lib/agent/`) is a real app-owned analysis subsystem — not a thin wrapper. When working on it:
 
-- Read `docs/ecomdash2/agentic-brain-implementation.md` first
+- Read `docs/reference/agent/README.md` first, then open the focused doc for your concern
+- Use `docs/guides/agentic-brain-implementation.md` as the current implementation reference
 - Tools live in `lib/agent/tools.ts` and wrap server-side loaders (not browser-side queries)
-- Runbook prompts live in `docs/ecomdash2/agent-runbooks.md`
+- Runbook prompts live in `docs/reference/agent/runbooks.md`
 - Runbook runtime config (execution mode, tool bundle, scope) lives in `lib/agent/presets.ts`
 - Prefer deterministic `tools` mode over free-form LLM synthesis for data-answering runbooks
 - Encrypted API key storage uses `DATA_ENCRYPTION_KEY` — do not log or expose decrypted values
@@ -167,8 +172,30 @@ For any substantial task:
 4. Verify: `npm run lint && npm run typecheck`
 5. Call out any unresolved backend coupling or missing context explicitly
 
+### Document lifecycle contract
+
+A task is not complete until its documents are resolved:
+
+- **`artifacts/`** — ephemeral by definition. Delete any files you created in `artifacts/` when the task is done. Do not leave plans, prompts, or result files behind.
+- **`docs/`** — stable reference only. If you create or significantly modify a doc in `docs/`, you must add or update its entry in the CLAUDE.md routing table in the same task. A doc in `docs/` that is not in the routing table is invisible to future agents.
+- **READMEs and existing docs** — if your changes affect documented behaviour, update the relevant doc in the same commit. Do not leave docs describing a system that no longer exists.
+
+The routing table is in CLAUDE.md under `## Where to go by task`.
+
+**PM/worker handoff system:** For substantial multi-task plans, use the handoff system documented in `docs/guides/agent-handoffs/README.md`. Templates live at `docs/guides/agent-handoffs/TEMPLATE.prompt.md` and `docs/guides/agent-handoffs/TEMPLATE.result.md`. Active PLAN.md and prompt/result files go in `artifacts/agent-handoffs/` (ephemeral — delete when the plan is complete).
+
+**CLAUDE.md and .cursorrules are a mirrored pair.** Any change to one must be reflected in the other in the same commit. They must never contradict each other. `.cursorrules` is the concise version; CLAUDE.md may be more detailed but must carry the same constraints and routing destinations.
+
+Work-order context budget:
+
+- `Read first`: max 8 files
+- `Allowed edit scope`: max 3 paths
+- `V1 references allowed`: max 3 paths
+- include explicit `Out of scope`
+- run `npm run agent:context:verify` for context guardrails
+
 ### If context is missing
 
 - Prefer the page spec over inference
-- Prefer the backend boundary doc over convenience shortcuts
+- Prefer `docs/reference/backend-boundary.md` over convenience shortcuts
 - Ask for a tighter scope rather than widening the task
