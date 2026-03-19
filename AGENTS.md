@@ -162,6 +162,20 @@ Only promote a component from inline to `components/shared/` if:
 
 When in doubt, keep it inline.
 
+### When asked to create a plan
+
+When the user asks you to "create a plan", "plan this out", "set up a plan", or similar — for any task with more than 2–3 steps — do the following automatically without asking where to put things:
+
+1. Read `docs/guides/agent-handoffs/README.md` in full — this defines the PM/worker system
+2. Read `docs/guides/agent-handoffs/CLAUDE-CODE-PM.md` if running in Claude Code with sub-agents
+3. Create `artifacts/agent-handoffs/PLAN.md` using the task registry structure from the README (columns: ID | Task | Branch | Depends-on | Status | Commit)
+4. Create the first prompt file at `artifacts/agent-handoffs/<PROMPT_ID>.prompt.md` using `docs/guides/agent-handoffs/TEMPLATE.prompt.md` as the base
+5. Set the first task to `in-progress` in PLAN.md
+
+When all tasks in the plan are complete:
+- Delete `artifacts/agent-handoffs/PLAN.md` and all `.prompt.md` / `.result.md` files
+- This is part of the document lifecycle contract — a finished plan leaves no files behind
+
 ### Work order workflow
 
 For any substantial task:

@@ -44,6 +44,7 @@ npm run db:migrate:apply # apply pending migrations
 - `artifacts/` is ephemeral — delete any files you create there when the task is done
 - `docs/` is stable reference only — if you create or modify a doc there, add or update its entry in the routing table above in the same task
 - Update affected READMEs and docs in the same commit as the code change
+- When asked to "create a plan" for any multi-step task, read `docs/guides/agent-handoffs/README.md` and create `artifacts/agent-handoffs/PLAN.md` automatically — do not ask where to put files. Delete all artifacts when the plan is complete.
 - `.cursorrules` and `CLAUDE.md` are a mirrored pair — any change to one must be reflected in the other in the same commit
 - Full rules in AGENTS.md → Document lifecycle contract
 

@@ -46,3 +46,4 @@ npm run db:migrate:apply # apply pending migrations
 - The Turso database is currently shared with a prior version of the app — this is intentional
 - Only read/write tables listed in `docs/reference/backend-boundary.md`
 - The in-dashboard AI agent (`lib/agent/`) is a real subsystem — read its doc before touching it
+- When asked to "create a plan" for any multi-step task, read `docs/guides/agent-handoffs/README.md` and create `artifacts/agent-handoffs/PLAN.md` automatically — do not ask where to put files. Delete all artifacts when the plan is complete.
