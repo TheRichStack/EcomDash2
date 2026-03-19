@@ -5,7 +5,7 @@ import { timingSafeEqual } from "crypto"
  * Returns the workspace ID on success, throws on failure.
  */
 export function validateMcpToken(request: Request): string {
-  const secret = process.env.ECOMDASH2_MCP_TOKEN
+  const secret = process.env.ECOMDASH2_MCP_TOKEN?.trim()
   if (!secret) throw new Error("ECOMDASH2_MCP_TOKEN is not configured")
 
   const header = request.headers.get("authorization") ?? ""
