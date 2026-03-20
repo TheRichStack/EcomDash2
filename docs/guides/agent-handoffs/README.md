@@ -146,8 +146,9 @@ If a validation command fails (typecheck, lint, or a custom check):
 
 Always declare allowed pre-existing dirty files explicitly, then fail on unexpected tracked changes.
 
-**Shell note:** All scripts in prompt files are written in **bash**, which is Claude Code's
-default shell. Do not run them in PowerShell.
+**Shell note:** `TEMPLATE.prompt.md` is written in **bash** for Claude Code.
+If you run this workflow in Codex/Cursor, use PowerShell-safe equivalents and follow
+`CODEX-CURSOR-PM.md`.
 
 Use the cleanliness gate pattern from `TEMPLATE.prompt.md` exactly (do not trim away the status prefix before slicing path names).
 
@@ -263,6 +264,12 @@ Hard rule: do not approve any handoff that cannot be verified from actual reposi
 Base templates live here:
 
 - `docs/guides/agent-handoffs/TEMPLATE.prompt.md`
+- `docs/guides/agent-handoffs/TEMPLATE.codex.prompt.md`
 - `docs/guides/agent-handoffs/TEMPLATE.result.md`
+
+Engine-specific PM guides:
+
+- `docs/guides/agent-handoffs/CLAUDE-CODE-PM.md`
+- `docs/guides/agent-handoffs/CODEX-CURSOR-PM.md`
 
 Use these as defaults, then fill task-specific scope and checks.

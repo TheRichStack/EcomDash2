@@ -24,7 +24,7 @@ The repo root is the app root. There is no parent repo.
 - Data sources and table ownership: docs/reference/backend-boundary.md
 - Jobs and connectors: docs/reference/job-runtime-layout.md
 - In-dashboard AI agent: docs/guides/agentic-brain-implementation.md and docs/reference/agent/
-- PM/worker agent handoff system: docs/guides/agent-handoffs/README.md and docs/guides/agent-handoffs/CLAUDE-CODE-PM.md
+- PM/worker agent handoff system: docs/guides/agent-handoffs/README.md, docs/guides/agent-handoffs/CLAUDE-CODE-PM.md, docs/guides/agent-handoffs/CODEX-CURSOR-PM.md, and docs/guides/agent-handoffs/TEMPLATE.codex.prompt.md
 - Metrics and KPIs: docs/reference/metrics-engine.md
 - Folder placement rules: docs/reference/project-structure.md
 

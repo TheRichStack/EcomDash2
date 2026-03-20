@@ -25,8 +25,8 @@ The repo root is the app root. There is no parent repo.
 | Design and product scope | [docs/ecomdash2/README.md](docs/ecomdash2/README.md), [docs/decisions/design-philosophy.md](docs/decisions/design-philosophy.md) |
 | Data sources and table ownership | [docs/reference/backend-boundary.md](docs/reference/backend-boundary.md) |
 | Jobs and connectors | [docs/reference/job-runtime-layout.md](docs/reference/job-runtime-layout.md) |
-| In-dashboard AI agent | [docs/guides/agentic-brain-implementation.md](docs/guides/agentic-brain-implementation.md), [docs/reference/agent/](docs/reference/agent/) |
-| PM/worker agent handoff system | [docs/guides/agent-handoffs/README.md](docs/guides/agent-handoffs/README.md), [docs/guides/agent-handoffs/CLAUDE-CODE-PM.md](docs/guides/agent-handoffs/CLAUDE-CODE-PM.md) |
+| MCP server and agent data engine | [docs/reference/agent/README.md](docs/reference/agent/README.md) |
+| PM/worker agent handoff system | [docs/guides/agent-handoffs/README.md](docs/guides/agent-handoffs/README.md), [docs/guides/agent-handoffs/CLAUDE-CODE-PM.md](docs/guides/agent-handoffs/CLAUDE-CODE-PM.md), [docs/guides/agent-handoffs/CODEX-CURSOR-PM.md](docs/guides/agent-handoffs/CODEX-CURSOR-PM.md), [docs/guides/agent-handoffs/TEMPLATE.codex.prompt.md](docs/guides/agent-handoffs/TEMPLATE.codex.prompt.md) |
 | Metrics and KPIs | [docs/reference/metrics-engine.md](docs/reference/metrics-engine.md) |
 | Folder placement rules | [docs/reference/project-structure.md](docs/reference/project-structure.md) |
 
@@ -45,5 +45,6 @@ npm run db:migrate:apply # apply pending migrations
 
 - The Turso database is currently shared with a prior version of the app — this is intentional
 - Only read/write tables listed in `docs/reference/backend-boundary.md`
-- The in-dashboard AI agent (`lib/agent/`) is a real subsystem — read its doc before touching it
+- `lib/agent/` is the data engine for the MCP server — only `tools.ts`, `anomalies.ts`, `types.ts`, and `constants.ts` remain
+- The MCP server lives at `lib/mcp/` and `app/api/mcp/route.ts` — see `docs/reference/agent/README.md`
 - When asked to "create a plan" for any multi-step task, read `docs/guides/agent-handoffs/README.md` and create `artifacts/agent-handoffs/PLAN.md` automatically — do not ask where to put files. Delete all artifacts when the plan is complete.

@@ -32,7 +32,6 @@ You can:
 7. Start dev server (`npm run dev`) and verify dashboard loads
 8. Deploy to Vercel (`vercel --prod`)
 9. Set GitHub Actions secrets (`gh secret set` or via the GitHub UI)
-10. Optionally configure the in-dashboard AI agent API key via Settings
 
 ### Questions to ask upfront
 
@@ -81,8 +80,7 @@ Before starting any build task, read the relevant docs:
 - `docs/decisions/ui-guardrails.md` — component promotion rules
 - `docs/reference/metrics-engine.md` — metric definitions and registry
 - The relevant file under `docs/ecomdash2/page-specs/` if working on a specific page
-- `docs/reference/agent/README.md` if working on the in-dashboard agent
-- `docs/reference/agent/context-budget-policy.md` when defining or reviewing agent task scope
+- `docs/reference/agent/README.md` if working on the MCP server or agent data engine
 
 ### Source of truth priority
 
@@ -117,7 +115,6 @@ Before starting any build task, read the relevant docs:
 | shadcn primitives | `components/ui/` (CLI output only) |
 | Reusable assemblies | `components/shared/` |
 | App shell and layout | `components/layout/` |
-| In-dashboard agent UI | `components/agent/` |
 | Theme helpers | `components/theme/` |
 | Static config and nav | `config/` |
 | Reusable hooks | `hooks/` |
@@ -139,17 +136,16 @@ See [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for detailed folder-l
 - All EcomDash2-owned config keys must be namespaced `ecomdash2.*`
 - New migrations go in `lib/db/migrations/` using the next sequence number
 
-### In-dashboard agent
+### MCP server and agent data engine
 
-The in-dashboard agent (`lib/agent/`) is a real app-owned analysis subsystem — not a thin wrapper. When working on it:
+The in-dashboard chat UI has been replaced by an MCP server. All AI reasoning now
+happens inside the user's AI client (Claude Desktop, Claude Code, etc.).
 
-- Read `docs/reference/agent/README.md` first, then open the focused doc for your concern
-- Use `docs/guides/agentic-brain-implementation.md` as the current implementation reference
-- Tools live in `lib/agent/tools.ts` and wrap server-side loaders (not browser-side queries)
-- Runbook prompts live in `docs/reference/agent/runbooks.md`
-- Runbook runtime config (execution mode, tool bundle, scope) lives in `lib/agent/presets.ts`
-- Prefer deterministic `tools` mode over free-form LLM synthesis for data-answering runbooks
-- Encrypted API key storage uses `DATA_ENCRYPTION_KEY` — do not log or expose decrypted values
+- `lib/agent/` is the **data engine only** — `tools.ts`, `anomalies.ts`, `types.ts`, `constants.ts`
+- `lib/mcp/` is the **MCP server** — tools, prompts, auth, context, and server setup
+- `app/api/mcp/route.ts` is the **HTTP endpoint** — stateless, Vercel-hosted, bearer token auth
+- See `docs/reference/agent/README.md` for the full picture before touching either subsystem
+- Do not add orchestration, storage, or chat UI back to `lib/agent/`
 
 ### Component promotion rules
 
