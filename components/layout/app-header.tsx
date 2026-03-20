@@ -7,7 +7,6 @@ import { CalendarRangeIcon } from "lucide-react"
 
 import { ThemeToggle } from "@/components/theme/theme-toggle"
 import { DashboardRefreshStatus } from "@/components/layout/dashboard-refresh-status"
-import { AgentChatSheet } from "@/components/agent/agent-chat-sheet"
 import { Calendar } from "@/components/ui/calendar"
 import { Button } from "@/components/ui/button"
 import {
@@ -110,7 +109,6 @@ export function AppHeader() {
           </div>
 
           <div className="flex items-center gap-2">
-            <AgentChatSheet />
             <ThemeToggle />
           </div>
         </div>
